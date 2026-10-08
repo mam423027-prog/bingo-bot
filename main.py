@@ -18,7 +18,7 @@ import uvicorn
 
 # --- CONFIGURATION ---
 BOT_TOKEN = "8636562924:AAHb4elV7z3z85uE9hTScby3uBu8LA-WPWw"  # Replace with your actual BotFather token
-WEBAPP_URL = "https://continue-jewellery-book-cons.trycloudflare.com"
+WEBAPP_URL = "[https://hagere-bingo-bot.onrender.com](https://hagere-bingo-bot.onrender.com)"
 DB_PATH = "bingo.db"
 ADMIN_ID = 349952871
 
