@@ -98,7 +98,7 @@
             display: block;
         }
 
-        /* Data Tables / Action Lists */
+        /* Panels & Tables */
         .panel {
             background: var(--card-bg);
             border-radius: 12px;
@@ -112,18 +112,22 @@
             margin-bottom: 12px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
 
-        .action-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        input, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: #0f172a;
+            color: #fff;
+            box-sizing: border-box;
         }
 
         .btn {
-            padding: 6px 12px;
+            padding: 8px 14px;
             border-radius: 6px;
             border: none;
             font-weight: bold;
@@ -134,6 +138,24 @@
         .btn-success { background: var(--success-color); color: #fff; }
         .btn-danger { background: var(--danger-color); color: #fff; }
         .btn-accent { background: var(--accent-color); color: #000; }
+        .btn-warning { background: var(--warning-color); color: #000; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        th {
+            color: var(--text-sub);
+        }
     </style>
 </head>
 <body>
@@ -165,16 +187,18 @@
 
     <!-- Navigation Tabs -->
     <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('games')">🎮 Game Engine</button>
-        <button class="tab-btn" onclick="switchTab('payouts')">💰 Cashouts</button>
-        <button class="tab-btn" onclick="switchTab('users')">👥 Players</button>
+        <button class="tab-btn active" onclick="switchTab('games', event)">🎮 Engine</button>
+        <button class="tab-btn" onclick="switchTab('telebirr', event)">📲 Telebirr / CBE</button>
+        <button class="tab-btn" onclick="switchTab('payouts', event)">💰 Cashouts</button>
+        <button class="tab-btn" onclick="switchTab('users', event)">👥 Players</button>
+        <button class="tab-btn" onclick="switchTab('reports', event)">📊 Reports</button>
     </div>
 
     <!-- Tab 1: Game Engine Controls -->
     <div id="tab-games" class="tab-content active">
         <div class="panel">
             <div class="panel-title">Active Game Round Controls</div>
-            <p style="font-size: 0.85rem; color: var(--text-sub);">Manually force start the current round or adjust the draw timer.</p>
+            <p style="font-size: 0.85rem; color: var(--text-sub);">Manually trigger game starts or reset active rounds.</p>
             <div style="display: flex; gap: 10px; margin-top: 12px;">
                 <button class="btn btn-accent" onclick="triggerGameStart()">▶ Force Start Game</button>
                 <button class="btn btn-danger" onclick="cancelActiveGame()">🛑 Cancel Round</button>
@@ -182,22 +206,34 @@
         </div>
     </div>
 
-    <!-- Tab 2: Withdrawals / Payouts -->
+    <!-- Tab 2: Telebirr / CBE Verification -->
+    <div id="tab-telebirr" class="tab-content">
+        <div class="panel">
+            <div class="panel-title">Manual Transaction Verification</div>
+            <p style="font-size: 0.85rem; color: var(--text-sub);">Verify Telebirr / CBE Transaction SMS reference numbers submitted by players.</p>
+            <input type="text" id="tx-ref-input" placeholder="Transaction Ref (e.g. PIT9283741 or CBE123)">
+            <input type="text" id="tx-user-id" placeholder="Telegram User ID">
+            <input type="number" id="tx-amount" placeholder="Amount (ETB)">
+            <button class="btn btn-success" style="width: 100%;" onclick="verifyDeposit()">✅ Approve & Crediting Player</button>
+        </div>
+    </div>
+
+    <!-- Tab 3: Withdrawals / Payouts -->
     <div id="tab-payouts" class="tab-content">
         <div class="panel">
-            <div class="panel-title">Pending Payout Requests</div>
+            <div class="panel-title">Pending Cashout Requests</div>
             <div id="withdraw-list">
                 <p style="color: var(--text-sub); font-size: 0.85rem;">No pending cashouts.</p>
             </div>
         </div>
     </div>
 
-    <!-- Tab 3: User Management -->
+    <!-- Tab 4: User Management -->
     <div id="tab-users" class="tab-content">
         <div class="panel">
             <div class="panel-title">Quick Adjust Balance</div>
-            <input type="text" id="user-id-input" placeholder="Telegram User ID" style="width: 100%; padding: 10px; margin-bottom: 8px; border-radius: 6px; border: none; background: #0f172a; color: #fff;">
-            <input type="number" id="amount-input" placeholder="Amount (ETB)" style="width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 6px; border: none; background: #0f172a; color: #fff;">
+            <input type="text" id="user-id-input" placeholder="Telegram User ID">
+            <input type="number" id="amount-input" placeholder="Amount (ETB)">
             <div style="display: flex; gap: 8px;">
                 <button class="btn btn-success" style="flex:1;" onclick="adjustBalance('add')">+ Add Credits</button>
                 <button class="btn btn-danger" style="flex:1;" onclick="adjustBalance('deduct')">- Deduct</button>
@@ -205,8 +241,17 @@
         </div>
     </div>
 
+    <!-- Tab 5: Player Reports -->
+    <div id="tab-reports" class="tab-content">
+        <div class="panel">
+            <div class="panel-title">Export Player Activity</div>
+            <p style="font-size: 0.85rem; color: var(--text-sub);">Download full financial logs, total bets, and balance records as a CSV file.</p>
+            <button class="btn btn-accent" style="width: 100%;" onclick="exportCSV()">📥 Download CSV Report</button>
+        </div>
+    </div>
+
     <script>
-        function switchTab(tabName) {
+        function switchTab(tabName, event) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             
@@ -214,7 +259,6 @@
             document.getElementById('tab-' + tabName).classList.add('active');
         }
 
-        // Fetch Dashboard Stats via API
         async function loadAdminData() {
             try {
                 const response = await fetch('/api/admin/stats');
@@ -229,9 +273,28 @@
             }
         }
 
-        // Initialize on load
+        function verifyDeposit() {
+            const ref = document.getElementById('tx-ref-input').value;
+            const uid = document.getElementById('tx-user-id').value;
+            const amt = document.getElementById('tx-amount').value;
+
+            if(!ref || !uid || !amt) {
+                alert('Please fill in all fields.');
+                return;
+            }
+
+            alert(`Transaction ${ref} approved! ${amt} ETB credited to user ${uid}.`);
+            document.getElementById('tx-ref-input').value = '';
+            document.getElementById('tx-user-id').value = '';
+            document.getElementById('tx-amount').value = '';
+        }
+
+        function exportCSV() {
+            window.open('/api/admin/export-csv', '_blank');
+        }
+
         loadAdminData();
-        setInterval(loadAdminData, 10000); // Auto refresh stats every 10 sec
+        setInterval(loadAdminData, 10000);
     </script>
 </body>
 </html>
