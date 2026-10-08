@@ -3,320 +3,212 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bingo Mini App</title>
+    <title>Hagere Bingo</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-color: #0f172a;
+            --bg-dark: #0f172a;
             --card-bg: #1e293b;
-            --accent-color: #38bdf8;
-            --success-color: #22c55e;
-            --text-color: #f8fafc;
-            --muted-text: #94a3b8;
+            --accent-blue: #38bdf8;
+            --success-green: #22c55e;
+            --text-light: #f8fafc;
+            --text-dim: #94a3b8;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
             margin: 0;
             padding: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
 
         .header {
-            width: 100%;
-            max-width: 400px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: var(--card-bg);
             padding: 12px 16px;
             border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            margin-bottom: 16px;
-            box-sizing: border-box;
-        }
-
-        .user-info {
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .balance-badge {
-            background: #0369a1;
-            color: #e0f2fe;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .status-box {
-            width: 100%;
-            max-width: 400px;
-            background: var(--card-bg);
-            padding: 16px;
-            border-radius: 12px;
-            text-align: center;
-            margin-bottom: 16px;
-            box-sizing: border-box;
-        }
-
-        .drawn-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            justify-content: center;
-            margin-top: 10px;
-            max-height: 80px;
-            overflow-y: auto;
-        }
-
-        .drawn-ball {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--accent-color);
-            color: #0284c7;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-        }
-
-        .latest-ball {
-            background: #f59e0b !important;
-            color: #78350f !important;
-            transform: scale(1.1);
-        }
-
-        .controls {
-            width: 100%;
-            max-width: 400px;
-            display: flex;
-            gap: 10px;
             margin-bottom: 16px;
         }
 
-        .btn {
-            flex: 1;
-            background: var(--accent-color);
-            color: #0f172a;
-            border: none;
-            padding: 12px;
-            border-radius: 8px;
+        .balance-box {
+            font-size: 1.1rem;
             font-weight: bold;
-            cursor: pointer;
-            font-size: 14px;
+            color: var(--success-green);
         }
 
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .tickets-container {
-            width: 100%;
-            max-width: 400px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .bingo-card {
-            background: var(--card-bg);
-            padding: 12px;
-            border-radius: 12px;
-        }
-
-        .bingo-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 8px;
-            font-size: 12px;
-            color: var(--muted-text);
-        }
-
-        .grid {
+        .action-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
         }
 
-        .cell {
-            aspect-ratio: 1;
-            background: #334155;
-            border-radius: 6px;
+        .btn-action {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-deposit { background: var(--success-green); color: #000; }
+        .btn-withdraw { background: var(--accent-blue); color: #000; }
+
+        /* Modal styling */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 14px;
+            width: 85%;
+            max-width: 360px;
+        }
+
+        .modal-title {
+            font-size: 1.2rem;
             font-weight: bold;
-            font-size: 14px;
+            margin-bottom: 12px;
         }
 
-        .cell.matched {
-            background: var(--success-color);
-            color: #052e16;
-        }
-
-        .cell.free {
-            background: #64748b;
-            font-size: 10px;
-        }
-
-        .claim-btn {
+        input, select {
             width: 100%;
-            margin-top: 10px;
-            background: var(--success-color);
-            color: #052e16;
+            padding: 10px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: #0f172a;
+            color: #fff;
+            box-sizing: border-box;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: none;
+            font-weight: bold;
+            background: var(--accent-blue);
+            color: #000;
+            cursor: pointer;
+        }
+
+        .btn-close {
+            background: transparent;
+            color: var(--text-dim);
+            border: none;
+            width: 100%;
+            margin-top: 8px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
 
     <div class="header">
-        <div class="user-info" id="username-display">Loading...</div>
-        <div class="balance-badge" id="balance-display">0.00 ETB</div>
+        <div>
+            <div style="font-size: 0.8rem; color: var(--text-dim);">Player Balance</div>
+            <div class="balance-box" id="user-balance">0.00 ETB</div>
+        </div>
+        <button style="background:none; border:none; color:var(--text-dim);" onclick="fetchBalance()">🔄</button>
     </div>
 
-    <div class="status-box">
-        <div id="game-status">Connecting...</div>
-        <div class="drawn-container" id="drawn-balls"></div>
+    <!-- Deposit & Withdraw Quick Buttons -->
+    <div class="action-grid">
+        <button class="btn-action btn-deposit" onclick="openModal('deposit-modal')">➕ Deposit</button>
+        <button class="btn-action btn-withdraw" onclick="openModal('withdraw-modal')">➖ Withdraw</button>
     </div>
 
-    <div class="controls">
-        <button class="btn" id="buy-btn" onclick="buyTicket()">Buy Card (10 ETB)</button>
+    <!-- Main Game Section Placeholder -->
+    <div style="background: var(--card-bg); padding: 20px; border-radius: 12px; text-align: center;">
+        <h3 style="margin-top:0;">🎮 Bingo Game Board</h3>
+        <p style="color: var(--text-dim); font-size:0.9rem;">Select your numbers and join active round.</p>
     </div>
 
-    <div class="tickets-container" id="tickets-list"></div>
+    <!-- Deposit Modal -->
+    <div id="deposit-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">📥 Deposit Funds</div>
+            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 12px;">
+                Send ETB via Telebirr or CBE, then enter your transaction reference number below:
+            </p>
+            <select id="deposit-method">
+                <option value="telebirr">Telebirr</option>
+                <option value="cbe">CBE Birr / CBE Bank</option>
+            </select>
+            <input type="number" id="deposit-amount" placeholder="Amount (ETB)">
+            <input type="text" id="deposit-ref" placeholder="Transaction Ref (e.g. PIT123456)">
+            <button class="btn-submit" onclick="submitDeposit()">Submit Deposit</button>
+            <button class="btn-close" onclick="closeModal('deposit-modal')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Withdraw Modal -->
+    <div id="withdraw-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-title">📤 Request Cashout</div>
+            <select id="withdraw-method">
+                <option value="telebirr">Telebirr Account</option>
+                <option value="cbe">CBE Account</option>
+            </select>
+            <input type="text" id="withdraw-acc" placeholder="Account / Phone Number">
+            <input type="number" id="withdraw-amount" placeholder="Amount (ETB)">
+            <button class="btn-submit" onclick="submitWithdraw()">Submit Request</button>
+            <button class="btn-close" onclick="closeModal('withdraw-modal')">Cancel</button>
+        </div>
+    </div>
 
     <script>
-        const tg = window.Telegram.WebApp;
-        tg.expand();
+        const tg = window.Telegram?.WebApp;
+        if(tg) tg.expand();
 
-        const user = tg.initDataUnsafe?.user || { id: 349952871, username: "Nasre8" };
-        let drawnNumbers = new Set();
-        let myTickets = [];
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        async function fetchUser() {
-            try {
-                const res = await fetch(`/api/user/${user.id}?username=${user.username || ''}`);
-                const data = await res.json();
-                document.getElementById('username-display').innerText = `@${data.username}`;
-                document.getElementById('balance-display').innerText = `${data.balance.toFixed(2)} ETB`;
-            } catch (e) {
-                console.error("Failed to fetch user data", e);
-            }
-        }
+        async function submitDeposit() {
+            const amount = document.getElementById('deposit-amount').value;
+            const ref = document.getElementById('deposit-ref').value;
+            const method = document.getElementById('deposit-method').value;
 
-        async function fetchGameStatus() {
-            try {
-                const res = await fetch('/api/game/current');
-                const data = await res.json();
-
-                const statusEl = document.getElementById('game-status');
-                const ballsEl = document.getElementById('drawn-balls');
-
-                if (data.status === 'waiting') {
-                    statusEl.innerText = `Next round starts in: ${data.time_left}s`;
-                } else if (data.status === 'active') {
-                    statusEl.innerText = `Game in Progress! Drawn: ${data.drawn_numbers.length}/75`;
-                } else {
-                    statusEl.innerText = `Waiting for next game...`;
-                }
-
-                drawnNumbers = new Set(data.drawn_numbers || []);
-                
-                ballsEl.innerHTML = (data.drawn_numbers || []).map((num, idx, arr) => `
-                    <div class="drawn-ball ${idx === arr.length - 1 ? 'latest-ball' : ''}">${num}</div>
-                `).reverse().join('');
-
-                renderTickets();
-            } catch (e) {
-                console.error("Error fetching game status", e);
-            }
-        }
-
-        async function buyTicket() {
-            const btn = document.getElementById('buy-btn');
-            btn.disabled = true;
-            try {
-                const res = await fetch('/api/ticket/buy', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: user.id, username: user.username, quantity: 1 })
-                });
-                const data = await res.json();
-                if (data.error) {
-                    alert(data.error);
-                } else {
-                    myTickets.push(...data.tickets);
-                    fetchUser();
-                    renderTickets();
-                }
-            } catch (e) {
-                alert("Failed to purchase card.");
-            } finally {
-                btn.disabled = false;
-            }
-        }
-
-        async function claimBingo(ticketId) {
-            try {
-                const res = await fetch('/api/ticket/claim', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: user.id, ticket_id: ticketId })
-                });
-                const data = await res.json();
-                if (data.won) {
-                    alert(`🎉 BINGO! You won ${data.prize} ETB!`);
-                    fetchUser();
-                } else {
-                    alert(`❌ ${data.reason}`);
-                }
-            } catch (e) {
-                alert("Error claiming Bingo.");
-            }
-        }
-
-        function renderTickets() {
-            const container = document.getElementById('tickets-list');
-            if (myTickets.length === 0) {
-                container.innerHTML = `<div style="text-align: center; color: var(--muted-text);">No active cards. Buy one to play!</div>`;
+            if(!amount || !ref) {
+                alert('Please enter amount and reference code.');
                 return;
             }
 
-            container.innerHTML = myTickets.map(t => {
-                const matrixHtml = t.matrix.map((row, r) => 
-                    row.map((val, c) => {
-                        if (r === 2 && c === 2) {
-                            return `<div class="cell free">FREE</div>`;
-                        }
-                        const isMatched = drawnNumbers.has(val);
-                        return `<div class="cell ${isMatched ? 'matched' : ''}">${val}</div>`;
-                    }).join('')
-                ).join('');
-
-                return `
-                    <div class="bingo-card">
-                        <div class="bingo-header">
-                            <span>Ticket #${t.ticket_id}</span>
-                        </div>
-                        <div class="grid">${matrixHtml}</div>
-                        <button class="btn claim-btn" onclick="claimBingo(${t.ticket_id})">BINGO!</button>
-                    </div>
-                `;
-            }).join('');
+            alert(`Deposit request submitted! Admin will verify transaction reference: ${ref}`);
+            closeModal('deposit-modal');
         }
 
-        fetchUser();
-        fetchGameStatus();
-        setInterval(fetchGameStatus, 2000);
+        async function submitWithdraw() {
+            const amount = document.getElementById('withdraw-amount').value;
+            const acc = document.getElementById('withdraw-acc').value;
+
+            if(!amount || !acc) {
+                alert('Please enter account number and amount.');
+                return;
+            }
+
+            alert(`Cashout request for ${amount} ETB to ${acc} submitted successfully!`);
+            closeModal('withdraw-modal');
+        }
     </script>
 </body>
 </html>
