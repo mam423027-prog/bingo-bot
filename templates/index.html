@@ -2,74 +2,221 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hagere Bingo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hagere Bingo Live</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
-            --bg-dark: #0f172a;
-            --card-bg: #1e293b;
-            --accent-blue: #38bdf8;
-            --success-green: #22c55e;
-            --text-light: #f8fafc;
-            --text-dim: #94a3b8;
+            --bg-main: #0b0f19;
+            --card-bg: #161f32;
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-glow: #38bdf8;
+            --cell-bg: #1e293b;
+            --cell-marked: #22c55e;
+            --gold-glow: #f59e0b;
+            --text-main: #f8fafc;
+            --text-sub: #94a3b8;
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-light);
+            background-color: var(--bg-main);
+            color: var(--text-main);
             margin: 0;
-            padding: 16px;
+            padding: 12px;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
+        /* Top Header Bar */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             background: var(--card-bg);
+            border: 1px solid var(--card-border);
             padding: 12px 16px;
-            border-radius: 12px;
-            margin-bottom: 16px;
+            border-radius: 16px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            margin-bottom: 12px;
         }
 
-        .balance-box {
-            font-size: 1.1rem;
-            font-weight: bold;
-            color: var(--success-green);
+        .balance-title {
+            font-size: 0.75rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
-        .action-grid {
+        .balance-value {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #22c55e;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Quick Cash Actions */
+        .action-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 16px;
         }
 
         .btn-action {
             background: var(--card-bg);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #fff;
-            padding: 12px;
-            border-radius: 10px;
-            font-weight: bold;
-            font-size: 0.95rem;
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.9rem;
             cursor: pointer;
+            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
         }
 
-        .btn-deposit { background: var(--success-green); color: #000; }
-        .btn-withdraw { background: var(--accent-blue); color: #000; }
+        .btn-deposit { background: linear-gradient(135deg, #16a34a, #22c55e); color: #000; border: none; }
+        .btn-withdraw { background: linear-gradient(135deg, #0284c7, #38bdf8); color: #000; border: none; }
 
-        /* Modal styling */
+        /* Ball Live Stream Board */
+        .live-balls-panel {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            padding: 12px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .current-ball-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .ball-large {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fef08a, #f59e0b, #b45309);
+            color: #000;
+            font-size: 1.8rem;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset -4px -4px 8px rgba(0,0,0,0.5);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .recent-balls {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            overflow-x: auto;
+            padding-top: 4px;
+        }
+
+        .ball-small {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--cell-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            font-size: 0.8rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Interactive 5x5 Bingo Grid */
+        .bingo-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 18px;
+            padding: 12px;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+        }
+
+        .bingo-header {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            text-align: center;
+            font-weight: 900;
+            font-size: 1.2rem;
+            color: var(--accent-glow);
+            margin-bottom: 8px;
+        }
+
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+        }
+
+        .bingo-cell {
+            aspect-ratio: 1;
+            background: var(--cell-bg);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text-main);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .bingo-cell.marked {
+            background: linear-gradient(135deg, #15803d, #22c55e);
+            color: #fff;
+            box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
+            transform: scale(0.96);
+        }
+
+        .bingo-cell.free {
+            background: linear-gradient(135deg, #b45309, #f59e0b);
+            color: #000;
+            font-size: 0.7rem;
+            font-weight: 900;
+        }
+
+        /* Claim Bingo Button */
+        .btn-claim {
+            width: 100%;
+            margin-top: 16px;
+            padding: 14px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+            font-size: 1.2rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        }
+
+        /* Modals */
         .modal {
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(4px);
             justify-content: center;
             align-items: center;
             z-index: 100;
@@ -77,102 +224,102 @@
 
         .modal-content {
             background: var(--card-bg);
+            border: 1px solid var(--card-border);
             padding: 20px;
-            border-radius: 14px;
+            border-radius: 18px;
             width: 85%;
             max-width: 360px;
         }
 
-        .modal-title {
-            font-size: 1.2rem;
-            font-weight: bold;
-            margin-bottom: 12px;
-        }
-
         input, select {
             width: 100%;
-            padding: 10px;
+            padding: 12px;
             margin-bottom: 12px;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.1);
-            background: #0f172a;
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
+            background: var(--bg-main);
             color: #fff;
             box-sizing: border-box;
+            font-size: 0.95rem;
         }
 
-        .btn-submit {
-            width: 100%;
-            padding: 10px;
-            border-radius: 8px;
-            border: none;
-            font-weight: bold;
-            background: var(--accent-blue);
-            color: #000;
-            cursor: pointer;
-        }
-
-        .btn-close {
-            background: transparent;
-            color: var(--text-dim);
-            border: none;
-            width: 100%;
-            margin-top: 8px;
-            cursor: pointer;
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
         }
     </style>
 </head>
 <body>
 
+    <!-- Header Balance Bar -->
     <div class="header">
         <div>
-            <div style="font-size: 0.8rem; color: var(--text-dim);">Player Balance</div>
-            <div class="balance-box" id="user-balance">0.00 ETB</div>
+            <div class="balance-title">Available Balance</div>
+            <div class="balance-value" id="user-balance">0.00 <span style="font-size:0.8rem;">ETB</span></div>
         </div>
-        <button style="background:none; border:none; color:var(--text-dim);" onclick="fetchBalance()">🔄</button>
+        <button class="btn-action" style="padding: 6px 12px;" onclick="fetchBalance()">🔄 Refresh</button>
     </div>
 
-    <!-- Deposit & Withdraw Quick Buttons -->
-    <div class="action-grid">
-        <button class="btn-action btn-deposit" onclick="openModal('deposit-modal')">➕ Deposit</button>
-        <button class="btn-action btn-withdraw" onclick="openModal('withdraw-modal')">➖ Withdraw</button>
+    <!-- Deposit & Withdraw Actions -->
+    <div class="action-row">
+        <button class="btn-action btn-deposit" onclick="openModal('deposit-modal')">📥 Deposit</button>
+        <button class="btn-action btn-withdraw" onclick="openModal('withdraw-modal')">📤 Withdraw</button>
     </div>
 
-    <!-- Main Game Section Placeholder -->
-    <div style="background: var(--card-bg); padding: 20px; border-radius: 12px; text-align: center;">
-        <h3 style="margin-top:0;">🎮 Bingo Game Board</h3>
-        <p style="color: var(--text-dim); font-size:0.9rem;">Select your numbers and join active round.</p>
+    <!-- Live Drawn Ball Display -->
+    <div class="live-balls-panel">
+        <div style="font-size: 0.75rem; color: var(--text-sub); text-transform: uppercase;">Current Called Number</div>
+        <div class="current-ball-display">
+            <div class="ball-large" id="current-ball">--</div>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-sub); margin-bottom: 6px;">Previous Calls</div>
+        <div class="recent-balls" id="recent-balls-list">
+            <div class="ball-small">--</div>
+            <div class="ball-small">--</div>
+            <div class="ball-small">--</div>
+            <div class="ball-small">--</div>
+        </div>
+    </div>
+
+    <!-- 5x5 Bingo Board -->
+    <div class="bingo-card">
+        <div class="bingo-header">
+            <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
+        </div>
+        <div class="bingo-grid" id="bingo-board">
+            <!-- Dynamically Rendered via JavaScript -->
+        </div>
+        <button class="btn-claim" onclick="claimBingo()">🔥 BINGO! 🔥</button>
     </div>
 
     <!-- Deposit Modal -->
     <div id="deposit-modal" class="modal">
         <div class="modal-content">
-            <div class="modal-title">📥 Deposit Funds</div>
-            <p style="font-size: 0.8rem; color: var(--text-dim); margin-bottom: 12px;">
-                Send ETB via Telebirr or CBE, then enter your transaction reference number below:
-            </p>
+            <h3 style="margin-top:0;">📥 Deposit Funds</h3>
+            <p style="font-size:0.8rem; color:var(--text-sub);">Transfer funds via Telebirr/CBE and enter the reference number:</p>
             <select id="deposit-method">
                 <option value="telebirr">Telebirr</option>
                 <option value="cbe">CBE Birr / CBE Bank</option>
             </select>
             <input type="number" id="deposit-amount" placeholder="Amount (ETB)">
-            <input type="text" id="deposit-ref" placeholder="Transaction Ref (e.g. PIT123456)">
-            <button class="btn-submit" onclick="submitDeposit()">Submit Deposit</button>
-            <button class="btn-close" onclick="closeModal('deposit-modal')">Cancel</button>
+            <input type="text" id="deposit-ref" placeholder="TX Ref (e.g., PIT928371)">
+            <button class="btn-action btn-deposit" style="width:100%;" onclick="submitDeposit()">Submit Deposit</button>
+            <button class="btn-action" style="width:100%; margin-top:8px; border:none;" onclick="closeModal('deposit-modal')">Cancel</button>
         </div>
     </div>
 
     <!-- Withdraw Modal -->
     <div id="withdraw-modal" class="modal">
         <div class="modal-content">
-            <div class="modal-title">📤 Request Cashout</div>
+            <h3 style="margin-top:0;">📤 Request Cashout</h3>
             <select id="withdraw-method">
                 <option value="telebirr">Telebirr Account</option>
-                <option value="cbe">CBE Account</option>
+                <option value="cbe">CBE Bank Account</option>
             </select>
             <input type="text" id="withdraw-acc" placeholder="Account / Phone Number">
             <input type="number" id="withdraw-amount" placeholder="Amount (ETB)">
-            <button class="btn-submit" onclick="submitWithdraw()">Submit Request</button>
-            <button class="btn-close" onclick="closeModal('withdraw-modal')">Cancel</button>
+            <button class="btn-action btn-withdraw" style="width:100%;" onclick="submitWithdraw()">Submit Request</button>
+            <button class="btn-action" style="width:100%; margin-top:8px; border:none;" onclick="closeModal('withdraw-modal')">Cancel</button>
         </div>
     </div>
 
@@ -183,32 +330,52 @@
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        async function submitDeposit() {
-            const amount = document.getElementById('deposit-amount').value;
-            const ref = document.getElementById('deposit-ref').value;
-            const method = document.getElementById('deposit-method').value;
+        // Generate Realistic 5x5 Bingo Card Numbers
+        function generateBingoCard() {
+            const board = document.getElementById('bingo-board');
+            board.innerHTML = '';
 
-            if(!amount || !ref) {
-                alert('Please enter amount and reference code.');
-                return;
+            const cols = {
+                B: getUniqueRandoms(1, 15, 5),
+                I: getUniqueRandoms(16, 30, 5),
+                N: getUniqueRandoms(31, 45, 5),
+                G: getUniqueRandoms(46, 60, 5),
+                O: getUniqueRandoms(61, 75, 5)
+            };
+
+            for (let row = 0; row < 5; row++) {
+                ['B', 'I', 'N', 'G', 'O'].forEach((col, colIdx) => {
+                    const cell = document.createElement('div');
+                    cell.className = 'bingo-cell';
+                    
+                    if (row === 2 && colIdx === 2) {
+                        cell.classList.add('marked', 'free');
+                        cell.innerText = 'FREE';
+                    } else {
+                        cell.innerText = cols[col][row];
+                        cell.onclick = () => cell.classList.toggle('marked');
+                    }
+                    
+                    board.appendChild(cell);
+                });
             }
-
-            alert(`Deposit request submitted! Admin will verify transaction reference: ${ref}`);
-            closeModal('deposit-modal');
         }
 
-        async function submitWithdraw() {
-            const amount = document.getElementById('withdraw-amount').value;
-            const acc = document.getElementById('withdraw-acc').value;
-
-            if(!amount || !acc) {
-                alert('Please enter account number and amount.');
-                return;
+        function getUniqueRandoms(min, max, count) {
+            const arr = [];
+            while(arr.length < count) {
+                const r = Math.floor(Math.random() * (max - min + 1)) + min;
+                if(!arr.includes(r)) arr.push(r);
             }
-
-            alert(`Cashout request for ${amount} ETB to ${acc} submitted successfully!`);
-            closeModal('withdraw-modal');
+            return arr;
         }
+
+        function claimBingo() {
+            if(tg) tg.HapticFeedback.notificationOccurred('success');
+            alert('🎉 Claiming BINGO! Verifying ticket on the server...');
+        }
+
+        generateBingoCard();
     </script>
 </body>
 </html>
