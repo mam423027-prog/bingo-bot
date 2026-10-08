@@ -1,0 +1,4 @@
+bingo.db
+__pycache__/
+*.pyc
+.git

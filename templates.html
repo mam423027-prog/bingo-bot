@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Bingo Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: var(--tg-theme-bg-color, #1c1c1e);
+            color: var(--tg-theme-text-color, #ffffff);
+            padding: 15px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            max-width: 320px;
+            margin: 20px auto;
+        }
+        .cell {
+            background: #2c2c2e;
+            padding: 15px 5px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            border: 1px solid #3a3a3c;
+        }
+        .cell.selected { background: #34c759; color: #fff; }
+        .cell.free { background: #ff9500; color: #fff; }
+        button {
+            background: #007aff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 320px;
+        }
+    </style>
+</head>
+<body>
+    <h2>🎱 Telegram Bingo</h2>
+    <p>Tap numbers to mark them!</p>
+    
+    <div id="bingo-card" class="grid"></div>
+    <button onclick="checkBingo()">🎉 Claim BINGO!</button>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Expand Mini App to full screen
+
+        // Sample Bingo Card Data
+        const card = [
+            [5, 18, 33, 50, 62],
+            [12, 22, 41, 55, 70],
+            [3, 29, "FREE", 48, 65],
+            [8, 19, 39, 52, 68],
+            [15, 30, 44, 59, 75]
+        ];
+
+        const container = document.getElementById("bingo-card");
+        
+        // Render 5x5 Grid
+        card.forEach(row => {
+            row.forEach(val => {
+                const div = document.createElement("div");
+                div.className = "cell" + (val === "FREE" ? " free" : "");
+                div.innerText = val;
+                div.onclick = () => div.classList.toggle("selected");
+                container.appendChild(div);
+            });
+        });
+
+        function checkBingo() {
+            tg.sendData(JSON.stringify({ action: "claim_bingo", user_id: tg.initDataUnsafe?.user?.id }));
+            tg.close();
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,304 @@
+import json
+import logging
+from aiogram import Bot, Dispatcher, Router, F, types
+from aiogram.filters import CommandStart
+from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+from fastapi import FastAPI, Request
+from fastapi.templating import Jinja2Templates
+import uvicorn
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+BOT_TOKEN = "8636562924:AAHb4elV7z3z85uE9hTScby3uBu8LA-WPWw"  # Replace with your token
+# Public HTTPS URL from localtunnel/ngrok (e.g. https://xxxx.loca.lt)
+WEBAPP_URL = "https://template-routers-carrying-operational.trycloudflare.com " 
+
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
+router = Router()
+dp.include_router(router)
+
+app = FastAPI()
+templates = Jinja2Templates(directory="templates")
+
+# --- Web Server Routes ---
+@app.get("/")
+async def serve_miniapp(request: Request):
+    return templates.TemplateResponse(request=request, name="index.html")
+
+
+# --- Bot Commands ---
+@router.message(CommandStart())
+async def cmd_start(message: types.Message):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="🎮 Open Bingo Mini App", 
+            web_app=WebAppInfo(url=https//caught-wrote-munich-netscape.trycloudflare.com)
+        )]
+    ])
+    await message.answer("Welcome! Tap below to play Bingo:", reply_markup=kb)
+
+@router.message(F.web_app_data)
+async def handle_miniapp_data(message: types.Message):
+    data = message.web_app_data.data
+    await message.answer(f"✅ Received submission from Mini App:\n`{data}`", parse_mode="Markdown")
+
+async def run_bot():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    # Create an explicit event loop for Python 3.14+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    # Schedule the bot background task
+    loop.create_task(run_bot())
+    
+    # Run the Uvicorn FastAPI server
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+ndom
+import os
+from pathlib import Path
+from typing import List
+
+import aiosqlite
+from aiogram import Bot, Dispatcher, Router, F, types
+from aiogram.filters import CommandStart
+from aiogram.types import WebAppInfo, InlineKeyboardMarkup, InlineKeyboardButton
+from fastapi import FastAPI, Request
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+import uvicorn
+
+# --- CONFIGURATION ---
+BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"  # Replace with token from @BotFather
+WEBAPP_URL = "https://your-cloudflare-url.trycloudflare.com"  # Replace with Cloudflare HTTPS URL
+DB_PATH = "bingo.db"
+
+# --- APPLICATION SETUP ---
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
+router = Router()
+dp.include_router(router)
+
+app = FastAPI()
+BASE_DIR = Path(__file__).resolve().parent
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+# --- DATABASE INITIALIZATION ---
+async def init_db():
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                username TEXT,
+                balance REAL DEFAULT 100.0
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS game_rounds (
+                round_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                drawn_numbers TEXT DEFAULT '[]',
+                status TEXT DEFAULT 'active'
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS tickets (
+                ticket_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                round_id INTEGER,
+                matrix TEXT,
+                status TEXT DEFAULT 'active'
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS transactions (
+                tx_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                amount REAL,
+                type TEXT
+            )
+        """)
+        
+        # Ensure at least one active game round exists
+        async with db.execute("SELECT round_id FROM game_rounds WHERE status = 'active'") as cursor:
+            if not await cursor.fetchone():
+                await db.execute("INSERT INTO game_rounds (drawn_numbers, status) VALUES ('[]', 'active')")
+        await db.commit()
+
+# --- BINGO CARD GENERATOR ---
+def generate_bingo_card() -> List[List[int]]:
+    cols = [
+        random.sample(range(1, 16), 5),   # B
+        random.sample(range(16, 31), 5),  # I
+        random.sample(range(31, 46), 5),  # N
+        random.sample(range(46, 61), 5),  # G
+        random.sample(range(61, 76), 5)   # O
+    ]
+    matrix = []
+    for r in range(5):
+        row = []
+        for c in range(5):
+            if r == 2 and c == 2:
+                row.append(0)  # FREE Space
+            else:
+                row.append(cols[c][r])
+        matrix.append(row)
+    return matrix
+
+# --- BACKGROUND GAME LOOP (Calls numbers every 5 seconds) ---
+async def game_loop():
+    while True:
+        await asyncio.sleep(5)
+        async with aiosqlite.connect(DB_PATH) as db:
+            async with db.execute("SELECT round_id, drawn_numbers FROM game_rounds WHERE status = 'active' LIMIT 1") as cursor:
+                row = await cursor.fetchone()
+                if row:
+                    round_id, drawn_json = row
+                    drawn = json.loads(drawn_json)
+                    if len(drawn) < 75:
+                        remaining = [n for n in range(1, 76) if n not in drawn]
+                        next_num = random.choice(remaining)
+                        drawn.append(next_num)
+                        await db.execute(
+                            "UPDATE game_rounds SET drawn_numbers = ? WHERE round_id = ?",
+                            (json.dumps(drawn), round_id)
+                        )
+                        await db.commit()
+
+# --- API PYDANTIC SCHEMAS ---
+class BuyTicketReq(BaseModel):
+    user_id: int
+
+class ClaimBingoReq(BaseModel):
+    user_id: int
+    ticket_id: int
+
+# --- API ENDPOINTS ---
+@app.get("/")
+async def serve_miniapp(request: Request):
+    return templates.TemplateResponse(request=request, name="index.html")
+
+@app.get("/api/user/{user_id}")
+async def get_user(user_id: int):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,)) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                await db.execute("INSERT INTO users (user_id, balance) VALUES (?, 100.0)", (user_id,))
+                await db.commit()
+                return {"user_id": user_id, "balance": 100.0}
+            return {"user_id": user_id, "balance": row[0]}
+
+@app.get("/api/game/current")
+async def get_current_game():
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT round_id, drawn_numbers, status FROM game_rounds WHERE status = 'active' LIMIT 1") as cursor:
+            row = await cursor.fetchone()
+            if row:
+                return {"round_id": row[0], "drawn_numbers": json.loads(row[1]), "status": row[2]}
+            return {"status": "none"}
+
+@app.post("/api/ticket/buy")
+async def buy_ticket(req: BuyTicketReq):
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT balance FROM users WHERE user_id = ?", (req.user_id,)) as cursor:
+            user = await cursor.fetchone()
+            balance = user[0] if user else 100.0
+
+        if balance < 10.0:
+            return {"error": "Insufficient balance! Ticket costs $10."}
+
+        # Deduct balance
+        new_balance = balance - 10.0
+        await db.execute("UPDATE users SET balance = ? WHERE user_id = ?", (new_balance, req.user_id))
+        await db.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, -10.0, 'ticket_purchase')", (req.user_id,))
+
+        # Fetch active round
+        async with db.execute("SELECT round_id FROM game_rounds WHERE status = 'active' LIMIT 1") as cursor:
+            round_row = await cursor.fetchone()
+            round_id = round_row[0]
+
+        # Generate ticket
+        matrix = generate_bingo_card()
+        cursor = await db.execute(
+            "INSERT INTO tickets (user_id, round_id, matrix) VALUES (?, ?, ?)",
+            (req.user_id, round_id, json.dumps(matrix))
+        )
+        await db.commit()
+
+        return {"ticket_id": cursor.lastrowid, "matrix": matrix}
+
+@app.post("/api/ticket/claim")
+async def claim_bingo(req: ClaimBingoReq):
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Fetch ticket and game numbers
+        async with db.execute("SELECT matrix, round_id, status FROM tickets WHERE ticket_id = ?", (req.ticket_id,)) as cursor:
+            t_row = await cursor.fetchone()
+            if not t_row or t_row[2] != 'active':
+                return {"won": False, "reason": "Invalid or already claimed ticket."}
+
+            matrix, round_id = json.loads(t_row[0]), t_row[1]
+
+        async with db.execute("SELECT drawn_numbers FROM game_rounds WHERE round_id = ?", (round_id,)) as cursor:
+            drawn_set = set(json.loads((await cursor.fetchone())[0]))
+            drawn_set.add(0) # FREE Space
+
+        # Validate lines (horizontal, vertical, diagonals)
+        lines = []
+        for r in range(5): lines.append([matrix[r][c] for c in range(5)]) # Rows
+        for c in range(5): lines.append([matrix[r][c] for r in range(5)]) # Columns
+        lines.append([matrix[i][i] for i in range(5)]) # Diagonal 1
+        lines.append([matrix[i][4 - i] for i in range(5)]) # Diagonal 2
+
+        is_bingo = any(all(num in drawn_set for num in line) for line in lines)
+
+        if is_bingo:
+            # Award prize
+            prize = 50.0
+            await db.execute("UPDATE tickets SET status = 'claimed' WHERE ticket_id = ?", (req.ticket_id,))
+            await db.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (prize, req.user_id))
+            await db.execute("INSERT INTO transactions (user_id, amount, type) VALUES (?, ?, 'bingo_win')", (req.user_id, prize))
+            await db.commit()
+            return {"won": True, "prize": prize}
+        else:
+            return {"won": False, "reason": "No valid Bingo line found yet."}
+
+# --- BOT TELEGRAM HANDLERS ---
+@router.message(CommandStart())
+async def cmd_start(message: types.Message):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute(
+            "INSERT INTO users (user_id, username, balance) VALUES (?, ?, 100.0) ON CONFLICT(user_id) DO NOTHING",
+            (message.from_user.id, message.from_user.username)
+        )
+        await db.commit()
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎮 Open Bingo Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]
+    ])
+    await message.answer("👋 Welcome to Bingo! Tap below to open your board and play:", reply_markup=kb)
+
+async def run_bot():
+    await dp.start_polling(bot)
+
+# --- APPLICATION RUNNER ---
+if __name__ == "__main__":
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    # Initialize SQLite Database
+    loop.run_until_complete(init_db())
+    
+    # Run Background Loop and Bot Tasks
+    loop.create_task(game_loop())
+    loop.create_task(run_bot())
+    
+    # Launch FastAPI Server
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
