@@ -14,6 +14,7 @@
             --cell-bg: #1e293b;
             --cell-marked: #22c55e;
             --gold-glow: #f59e0b;
+            --danger-color: #ef4444;
             --text-main: #f8fafc;
             --text-sub: #94a3b8;
         }
@@ -45,19 +46,14 @@
             font-size: 0.75rem;
             color: var(--text-sub);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
 
         .balance-value {
             font-size: 1.2rem;
             font-weight: 800;
             color: #22c55e;
-            display: flex;
-            align-items: center;
-            gap: 4px;
         }
 
-        /* Quick Cash Actions */
         .action-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -74,7 +70,6 @@
             font-weight: 700;
             font-size: 0.9rem;
             cursor: pointer;
-            transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -84,133 +79,109 @@
         .btn-deposit { background: linear-gradient(135deg, #16a34a, #22c55e); color: #000; border: none; }
         .btn-withdraw { background: linear-gradient(135deg, #0284c7, #38bdf8); color: #000; border: none; }
 
-        /* Ball Live Stream Board */
-        .live-balls-panel {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            padding: 12px;
+        /* Game & Lobby Live Stats Panel */
+        .live-stats-card {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 1px solid var(--accent-glow);
+            padding: 14px;
             border-radius: 16px;
             margin-bottom: 16px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             text-align: center;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
         }
 
-        .current-ball-display {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 10px 0;
+        .stat-item .label {
+            font-size: 0.7rem;
+            color: var(--text-sub);
+            text-transform: uppercase;
         }
 
-        .ball-large {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            background: radial-gradient(circle at 30% 30%, #fef08a, #f59e0b, #b45309);
-            color: #000;
-            font-size: 1.8rem;
-            font-weight: 900;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4), inset -4px -4px 8px rgba(0,0,0,0.5);
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        .stat-item .value {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #fff;
+            margin-top: 2px;
         }
 
-        .recent-balls {
-            display: flex;
-            justify-content: center;
-            gap: 6px;
-            overflow-x: auto;
-            padding-top: 4px;
-        }
-
-        .ball-small {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--cell-bg);
-            border: 1px solid var(--card-border);
-            color: var(--text-main);
-            font-size: 0.8rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Interactive 5x5 Bingo Grid */
-        .bingo-card {
+        /* 1 to 200 Ticket Selection Grid */
+        .lobby-panel {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
             border-radius: 18px;
-            padding: 12px;
-            box-shadow: 0 12px 24px rgba(0,0,0,0.4);
+            padding: 14px;
         }
 
-        .bingo-header {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
-            text-align: center;
-            font-weight: 900;
-            font-size: 1.2rem;
-            color: var(--accent-glow);
-            margin-bottom: 8px;
-        }
-
-        .bingo-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 6px;
-        }
-
-        .bingo-cell {
-            aspect-ratio: 1;
-            background: var(--cell-bg);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
+        .lobby-title {
+            font-size: 1rem;
             font-weight: 800;
-            color: var(--text-main);
+            color: var(--gold-glow);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ticket-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            max-height: 380px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .ticket-card {
+            background: var(--cell-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            padding: 10px 4px;
+            text-align: center;
             cursor: pointer;
             transition: all 0.15s ease;
         }
 
-        .bingo-cell.marked {
+        .ticket-card .num {
+            font-size: 0.95rem;
+            font-weight: 800;
+        }
+
+        .ticket-card .status {
+            font-size: 0.6rem;
+            color: var(--text-sub);
+            margin-top: 2px;
+        }
+
+        /* Ticket States */
+        .ticket-card.available {
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+        .ticket-card.available:hover {
+            border-color: var(--accent-glow);
+            transform: scale(1.05);
+        }
+
+        .ticket-card.taken {
+            background: rgba(239, 68, 68, 0.15);
+            border-color: var(--danger-color);
+            color: var(--danger-color);
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .ticket-card.selected {
             background: linear-gradient(135deg, #15803d, #22c55e);
             color: #fff;
-            box-shadow: 0 0 12px rgba(34, 197, 94, 0.4);
-            transform: scale(0.96);
+            box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
         }
 
-        .bingo-cell.free {
-            background: linear-gradient(135deg, #b45309, #f59e0b);
-            color: #000;
-            font-size: 0.7rem;
-            font-weight: 900;
+        /* Active Game View (Hidden until ticket chosen) */
+        .game-view {
+            display: none;
         }
 
-        /* Claim Bingo Button */
-        .btn-claim {
-            width: 100%;
-            margin-top: 16px;
-            padding: 14px;
-            border-radius: 14px;
-            border: none;
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: #000;
-            font-size: 1.2rem;
-            font-weight: 900;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            cursor: pointer;
-            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
-        }
-
-        /* Modals */
+        /* Modal Overlays */
         .modal {
             display: none;
             position: fixed;
@@ -240,75 +211,62 @@
             background: var(--bg-main);
             color: #fff;
             box-sizing: border-box;
-            font-size: 0.95rem;
-        }
-
-        @keyframes popIn {
-            0% { transform: scale(0.5); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Header Balance Bar -->
     <div class="header">
         <div>
-            <div class="balance-title">Available Balance</div>
+            <div class="balance-title">Balance</div>
             <div class="balance-value" id="user-balance">0.00 <span style="font-size:0.8rem;">ETB</span></div>
         </div>
-        <button class="btn-action" style="padding: 6px 12px;" onclick="fetchBalance()">🔄 Refresh</button>
+        <button class="btn-action" style="padding: 6px 12px;" onclick="fetchBalance()">🔄</button>
     </div>
 
-    <!-- Deposit & Withdraw Actions -->
     <div class="action-row">
         <button class="btn-action btn-deposit" onclick="openModal('deposit-modal')">📥 Deposit</button>
         <button class="btn-action btn-withdraw" onclick="openModal('withdraw-modal')">📤 Withdraw</button>
     </div>
 
-    <!-- Live Drawn Ball Display -->
-    <div class="live-balls-panel">
-        <div style="font-size: 0.75rem; color: var(--text-sub); text-transform: uppercase;">Current Called Number</div>
-        <div class="current-ball-display">
-            <div class="ball-large" id="current-ball">--</div>
+    <div class="live-stats-card">
+        <div class="stat-item">
+            <div class="label">Active Game</div>
+            <div class="value" style="color: var(--accent-glow);" id="stat-game-id">#1024</div>
         </div>
-        <div style="font-size: 0.75rem; color: var(--text-sub); margin-bottom: 6px;">Previous Calls</div>
-        <div class="recent-balls" id="recent-balls-list">
-            <div class="ball-small">--</div>
-            <div class="ball-small">--</div>
-            <div class="ball-small">--</div>
-            <div class="ball-small">--</div>
+        <div class="stat-item">
+            <div class="label">Players</div>
+            <div class="value" style="color: var(--gold-glow);" id="stat-players-count">18 / 200</div>
+        </div>
+        <div class="stat-item">
+            <div class="label">Prize Pool</div>
+            <div class="value" style="color: #22c55e;" id="stat-prize-pool">450 ETB</div>
         </div>
     </div>
 
-    <!-- 5x5 Bingo Board -->
-    <div class="bingo-card">
-        <div class="bingo-header">
-            <div>B</div><div>I</div><div>N</div><div>G</div><div>O</div>
+    <div id="lobby-view" class="lobby-panel">
+        <div class="lobby-title">
+            <span>🎟️ Select Ticket (1 - 200)</span>
+            <span style="font-size:0.75rem; color:var(--text-sub);">Stake: 25 ETB</span>
         </div>
-        <div class="bingo-grid" id="bingo-board">
-            <!-- Dynamically Rendered via JavaScript -->
-        </div>
-        <button class="btn-claim" onclick="claimBingo()">🔥 BINGO! 🔥</button>
+        <div class="ticket-grid" id="ticket-container">
+            </div>
     </div>
 
-    <!-- Deposit Modal -->
     <div id="deposit-modal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0;">📥 Deposit Funds</h3>
-            <p style="font-size:0.8rem; color:var(--text-sub);">Transfer funds via Telebirr/CBE and enter the reference number:</p>
             <select id="deposit-method">
                 <option value="telebirr">Telebirr</option>
                 <option value="cbe">CBE Birr / CBE Bank</option>
             </select>
             <input type="number" id="deposit-amount" placeholder="Amount (ETB)">
-            <input type="text" id="deposit-ref" placeholder="TX Ref (e.g., PIT928371)">
+            <input type="text" id="deposit-ref" placeholder="TX Ref Code">
             <button class="btn-action btn-deposit" style="width:100%;" onclick="submitDeposit()">Submit Deposit</button>
             <button class="btn-action" style="width:100%; margin-top:8px; border:none;" onclick="closeModal('deposit-modal')">Cancel</button>
         </div>
     </div>
 
-    <!-- Withdraw Modal -->
     <div id="withdraw-modal" class="modal">
         <div class="modal-content">
             <h3 style="margin-top:0;">📤 Request Cashout</h3>
@@ -330,52 +288,46 @@
         function openModal(id) { document.getElementById(id).style.display = 'flex'; }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // Generate Realistic 5x5 Bingo Card Numbers
-        function generateBingoCard() {
-            const board = document.getElementById('bingo-board');
-            board.innerHTML = '';
+        // Simulated list of taken tickets (Replace with real websocket or backend API)
+        const takenTickets = [3, 7, 12, 19, 25, 42, 58, 77, 88, 105, 119, 140, 166, 189];
 
-            const cols = {
-                B: getUniqueRandoms(1, 15, 5),
-                I: getUniqueRandoms(16, 30, 5),
-                N: getUniqueRandoms(31, 45, 5),
-                G: getUniqueRandoms(46, 60, 5),
-                O: getUniqueRandoms(61, 75, 5)
-            };
+        function renderTickets() {
+            const container = document.getElementById('ticket-container');
+            container.innerHTML = '';
 
-            for (let row = 0; row < 5; row++) {
-                ['B', 'I', 'N', 'G', 'O'].forEach((col, colIdx) => {
-                    const cell = document.createElement('div');
-                    cell.className = 'bingo-cell';
-                    
-                    if (row === 2 && colIdx === 2) {
-                        cell.classList.add('marked', 'free');
-                        cell.innerText = 'FREE';
-                    } else {
-                        cell.innerText = cols[col][row];
-                        cell.onclick = () => cell.classList.toggle('marked');
-                    }
-                    
-                    board.appendChild(cell);
-                });
+            for (let i = 1; i <= 200; i++) {
+                const isTaken = takenTickets.includes(i);
+                const ticket = document.createElement('div');
+                ticket.className = `ticket-card ${isTaken ? 'taken' : 'available'}`;
+                
+                ticket.innerHTML = `
+                    <div class="num">#${i}</div>
+                    <div class="status">${isTaken ? 'TAKEN' : 'OPEN'}</div>
+                `;
+
+                if (!isTaken) {
+                    ticket.onclick = () => selectTicket(i, ticket);
+                }
+
+                container.appendChild(ticket);
             }
         }
 
-        function getUniqueRandoms(min, max, count) {
-            const arr = [];
-            while(arr.length < count) {
-                const r = Math.floor(Math.random() * (max - min + 1)) + min;
-                if(!arr.includes(r)) arr.push(r);
-            }
-            return arr;
+        function selectTicket(ticketNum, element) {
+            if(tg) tg.HapticFeedback.impactOccurred('medium');
+
+            document.querySelectorAll('.ticket-card').forEach(t => t.classList.remove('selected'));
+            element.classList.add('selected');
+
+            setTimeout(() => {
+                if(confirm(`Confirm purchase for Ticket #${ticketNum} (25 ETB)?`)) {
+                    alert(`Ticket #${ticketNum} registered! Joining active game...`);
+                    // Here you transition to the live game board view
+                }
+            }, 100);
         }
 
-        function claimBingo() {
-            if(tg) tg.HapticFeedback.notificationOccurred('success');
-            alert('🎉 Claiming BINGO! Verifying ticket on the server...');
-        }
-
-        generateBingoCard();
+        renderTickets();
     </script>
 </body>
 </html>
