@@ -11,8 +11,9 @@ import random
 
 logging.basicConfig(level=logging.INFO)
 
-WEBAPP_URL = "https://hagere-bingo-bot.onrender.com"
 DB_FILE = "bingo.db"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 class ConnectionManager:
     def __init__(self):
@@ -97,7 +98,6 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
-templates = Jinja2Templates(directory="templates")
 
 @app.get("/", response_class=HTMLResponse)
 async def serve_index(request: Request):
@@ -219,9 +219,9 @@ async def buy_tickets(purchase: TicketPurchase):
 async def start_draw():
     async with aiosqlite.connect(DB_FILE) as db:
         async with db.execute("SELECT value FROM game_state WHERE key='round_id'") as cursor:
-            old_root = (await cursor.fetchone())[0]
+            old_round = (await cursor.fetchone())[0]
         
-        new_round = old_root + 1
+        new_round = old_round + 1
         await db.execute("UPDATE game_state SET value = ? WHERE key='round_id'", (new_round,))
         await db.execute("UPDATE game_state SET value = 1000 WHERE key='prize_pool'", ())
         await db.commit()
