@@ -2,12 +2,13 @@ import os
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from aiogram import Bot, Dispatcher, types
 import aiosqlite
+import random
 
 logging.basicConfig(level=logging.INFO)
 
@@ -18,6 +19,27 @@ DB_FILE = "bingo.db"
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot)
+
+# --- WebSocket Connection Manager ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except Exception:
+                pass
+
+manager = ConnectionManager()
 
 class TicketPurchase(BaseModel):
     user_id: int
@@ -47,7 +69,6 @@ async def init_db():
                 ticket_number INTEGER
             )
         """)
-        # Initialize default game state if not exists
         async with db.execute("SELECT value FROM game_state WHERE key = 'round_id'") as cursor:
             row = await cursor.fetchone()
             if not row:
@@ -63,7 +84,7 @@ async def lifespan(app: FastAPI):
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         asyncio.create_task(dp.start_polling(reset_webhook=True))
-        logging.info("Bot started successfully with SQLite DB Persistence.")
+        logging.info("Bot started successfully with WebSockets.")
     except Exception as e:
         logging.error(f"Startup error: {e}")
     yield
@@ -88,7 +109,6 @@ async def admin_cmd(message: types.Message):
 
 @dp.message_handler(commands=['start', 'play'])
 async def start_cmd(message: types.Message):
-    # Ensure user exists in database
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute(
             "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 500, 0)",
@@ -115,6 +135,15 @@ async def serve_index(request: Request):
 @app.get("/admin", response_class=HTMLResponse)
 async def serve_admin(request: Request):
     return templates.TemplateResponse("admin.html", {"request": request})
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 @app.get("/api/admin/stats")
 async def get_admin_stats():
@@ -150,24 +179,17 @@ async def get_user_profile(user_id: int):
 @app.post("/api/buy")
 async def buy_tickets(purchase: TicketPurchase):
     async with aiosqlite.connect(DB_FILE) as db:
-        # Get user balance
         async with db.execute("SELECT balance FROM users WHERE user_id = ?", (purchase.user_id,)) as cursor:
             row = await cursor.fetchone()
-            if not row:
-                balance = 500
-                await db.execute("INSERT INTO users (user_id, balance) VALUES (?, 500)", (purchase.user_id,))
-            else:
-                balance = row[0]
+            balance = row[0] if row else 500
 
         cost = purchase.count * 10
         if balance < cost:
             return JSONResponse({"status": "error", "message": f"Insufficient balance! Required: {cost} ETB"}, status_code=400)
 
-        # Get current round
         async with db.execute("SELECT value FROM game_state WHERE key='round_id'") as cursor:
             round_id = (await cursor.fetchone())[0]
 
-        # Deduct balance & record tickets
         new_balance = balance - cost
         await db.execute("UPDATE users SET balance = ?, total_deposits = total_deposits + ? WHERE user_id = ?", (new_balance, cost, purchase.user_id))
 
@@ -177,7 +199,6 @@ async def buy_tickets(purchase: TicketPurchase):
                 (round_id, purchase.user_id, t_num)
             )
 
-        # Update prize pool (+80% of ticket sales)
         async with db.execute("SELECT value FROM game_state WHERE key='prize_pool'") as cursor:
             current_pool = (await cursor.fetchone())[0]
         
@@ -202,9 +223,13 @@ async def start_draw():
         await db.execute("UPDATE game_state SET value = ? WHERE key='round_id'", (new_round,))
         await db.execute("UPDATE game_state SET value = 1000 WHERE key='prize_pool'", ())
         await db.commit()
+
+    # Broadcast live draw event to all connected clients
+    drawn_number = random.randint(1, 75)
+    await manager.broadcast({"type": "number_drawn", "number": drawn_number, "round_id": new_round})
     
     return JSONResponse({
         "status": "success",
-        "message": f"Draw completed for Round #{old_round}. Round #{new_round} is now OPEN!",
+        "message": f"Draw started for Round #{new_round}. Number {drawn_number} broadcasted!",
         "new_round": new_round
     })
