@@ -5,11 +5,12 @@ FastAPI application served by Uvicorn. The Docker image is configured to listen 
 ## Deployment (Render)
 
 1. Create a Render Web Service from this repository and select Docker. The included `render.yaml` can be used as a Blueprint.
-2. Set `BOT_TOKEN` to the Telegram bot token. Keep it secret.
-3. Set `ADMIN_TELEGRAM_IDS` to a comma-separated list of Telegram numeric user IDs permitted to use the admin API.
-4. Keep `DATABASE_PATH=/var/data/bingo.db` and ensure the persistent disk is mounted at `/var/data`.
-5. Configure the Telegram Mini App to use the HTTPS URL of the deployed service.
-6. Verify `/health` returns HTTP 200 after deployment.
+2. Set `BOT_TOKEN` to the newly rotated Telegram bot token. Store it only in Render's environment settings, never in GitHub.
+3. Confirm `ADMIN_TELEGRAM_IDS=349952871` (or your intended comma-separated admin IDs).
+4. Enter the payment destination account numbers in Render's private `TELEBIRR_ACCOUNT` and `CBEBIRR_ACCOUNT` environment variables; do not commit account numbers to this public repository.
+5. Keep `DATABASE_PATH=/var/data/bingo.db` and ensure the persistent disk is mounted at `/var/data`.
+6. Configure the Telegram Mini App to use the HTTPS URL of the deployed service.
+7. Verify `/health` returns HTTP 200 after deployment.
 
 ## Security and payments
 
