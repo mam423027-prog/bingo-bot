@@ -18,7 +18,7 @@ ADMIN_IDS = [349952871]
 DB_FILE = "bingo.db"
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher()
+dp = Dispatcher(bot)
 
 class ConnectionManager:
     def __init__(self):
@@ -99,7 +99,7 @@ async def init_db():
 async def start_telegram_polling():
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        await dp.start_polling(bot, reset_webhook=True)
+        await dp.start_polling(reset_webhook=True)
     except Exception as e:
         logging.error(f"Polling error: {e}")
 
