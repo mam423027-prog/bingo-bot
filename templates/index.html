@@ -200,7 +200,7 @@
         <div class="stat-box">
             <div class="stat-title">My Balance</div>
             <div class="stat-val" id="user-balance" style="color: var(--gold);">...</div>
-            <button class="btn-deposit" onclick="openDepositModal()">+ Deposit Account</button>
+            <button class="btn-deposit" disabled title="Payment verification is not configured">Deposits temporarily unavailable</button>
         </div>
         <div class="stat-box">
             <div class="stat-title">Active Round</div>
@@ -348,7 +348,7 @@
         function openDepositModal() { document.getElementById('deposit-modal').style.display = 'flex'; }
         function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
 
-        async function submitDeposit() {
+        async function submitDeposit() {\n            alert("Deposits are disabled until secure payment-provider verification is configured. No funds will be credited.");\n            return;
             const amount = parseInt(document.getElementById('dep-amount').value);
             const method = document.getElementById('dep-method').value;
             const ref = document.getElementById('dep-ref').value;
@@ -359,8 +359,8 @@
             try {
                 const res = await fetch('/api/deposit', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, amount: amount, payment_method: method, tx_ref: ref })
+                    headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg ? tg.initData : '' },
+                    body: JSON.stringify({ amount: amount, payment_method: method, tx_ref: ref })
                 });
                 const data = await res.json();
                 if (res.ok) {
@@ -394,8 +394,8 @@
                 try {
                     const response = await fetch('/api/buy', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId, count: ticketsArray.length, tickets: ticketsArray })
+                        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg ? tg.initData : '' },
+                        body: JSON.stringify({ count: ticketsArray.length, tickets: ticketsArray })
                     });
                     const data = await response.json();
                     
@@ -492,8 +492,7 @@
             try {
                 const res = await fetch('/api/user', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId })
+                    headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg ? tg.initData : '' }
                 });
                 const data = await res.json();
                 userBalance = data.balance;
@@ -505,7 +504,7 @@
 
         async function syncLobby() {
             try {
-                const res = await fetch('/api/admin/stats');
+                const res = await fetch('/api/lobby/stats');
                 const data = await res.json();
                 document.getElementById('lobby-round').innerText = "#" + data.active_game_id;
                 document.getElementById('lobby-pool').innerText = data.prize_pool.toLocaleString() + " ETB";
