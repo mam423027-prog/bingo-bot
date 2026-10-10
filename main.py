@@ -152,6 +152,30 @@ async def init_db():
                 "INSERT OR IGNORE INTO game_state (key, value) VALUES (?, ?)",
                 (key, value),
             )
+
+        # Older versions created these tables without uniqueness constraints.
+        # Deduplicate legacy rows before enforcing one sale per ticket per round
+        # and one deposit reference per provider.
+        await db.execute("""
+            DELETE FROM tickets
+            WHERE id NOT IN (
+                SELECT MIN(id) FROM tickets GROUP BY round_id, ticket_number
+            )
+        """)
+        await db.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_tickets_round_number
+            ON tickets(round_id, ticket_number)
+        """)
+        await db.execute("""
+            DELETE FROM deposits
+            WHERE id NOT IN (
+                SELECT MIN(id) FROM deposits GROUP BY payment_method, tx_ref
+            )
+        """)
+        await db.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_deposits_provider_reference
+            ON deposits(payment_method, tx_ref)
+        """)
         await db.commit()
 
 
