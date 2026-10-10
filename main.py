@@ -115,6 +115,23 @@ async def init_db():
                 total_deposits INTEGER NOT NULL DEFAULT 0 CHECK(total_deposits >= 0)
             )
         """)
+        # Keep legacy balances for audit, but do not let money credited by the
+        # old unverified deposit flow remain spendable after this security upgrade.
+        user_columns = {row[1] for row in await (await db.execute("PRAGMA table_info(users)")).fetchall()}
+        if "legacy_balance_unverified" not in user_columns:
+            await db.execute(
+                "ALTER TABLE users ADD COLUMN legacy_balance_unverified INTEGER NOT NULL DEFAULT 0"
+            )
+        if "legacy_total_deposits_unverified" not in user_columns:
+            await db.execute(
+                "ALTER TABLE users ADD COLUMN legacy_total_deposits_unverified INTEGER NOT NULL DEFAULT 0"
+            )
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                name TEXT PRIMARY KEY,
+                applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         await db.execute("""
             CREATE TABLE IF NOT EXISTS game_state (
                 key TEXT PRIMARY KEY,
@@ -151,6 +168,27 @@ async def init_db():
             await db.execute(
                 "INSERT OR IGNORE INTO game_state (key, value) VALUES (?, ?)",
                 (key, value),
+            )
+
+        # One-time quarantine of balances from the previous version. The old
+        # API credited client-supplied transaction references without verification.
+        async with db.execute(
+            "SELECT 1 FROM schema_migrations WHERE name='quarantine_unverified_legacy_balances'"
+        ) as cursor:
+            migration_done = await cursor.fetchone()
+        if not migration_done:
+            await db.execute("""
+                UPDATE users
+                SET legacy_balance_unverified = balance,
+                    legacy_total_deposits_unverified = total_deposits,
+                    balance = 0,
+                    total_deposits = 0
+            """)
+            await db.execute(
+                "UPDATE deposits SET status='unverified_legacy' WHERE status='completed'"
+            )
+            await db.execute(
+                "INSERT INTO schema_migrations(name) VALUES ('quarantine_unverified_legacy_balances')"
             )
 
         # Older versions created these tables without uniqueness constraints.
