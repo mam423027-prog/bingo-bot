@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         asyncio.create_task(dp.start_polling(reset_webhook=True))
-        logging.info("Bot started successfully with fresh token.")
+        logging.info("Bot started successfully.")
     except Exception as e:
         logging.error(f"Startup error: {e}")
     yield
