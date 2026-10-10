@@ -16,7 +16,8 @@ FastAPI application served by Uvicorn. The Docker image is configured to listen 
 
 - API identity is derived from Telegram Web App `initData`, whose signature and age are verified server-side using `BOT_TOKEN`.
 - Admin API operations require a valid Telegram identity listed in `ADMIN_TELEGRAM_IDS`.
-- Deposits are intentionally disabled and remain pending until a real payment provider's server-to-server verification/callback is implemented. Never credit a balance based solely on a transaction reference supplied by a browser.
+- Deposits are not credited automatically. The current endpoint records an unverified request and returns an unavailable response until payment verification is implemented. Never credit a balance based solely on a transaction reference supplied by a browser.
+- On first startup after this security upgrade, existing balances and historical completed deposits are quarantined as unverified audit data because the previous version credited client-supplied references without payment verification. Reconcile those records manually before any restoration.
 - Do not set `ALLOW_UNAUTHENTICATED_DEV=true` on a public deployment.
 - The admin HTML may be served publicly, but its data and draw operations are protected by server-side authorization.
 
