@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "fix/production-security-deployment"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  app-smoke-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Compile Python source
+        run: python -m compileall -q main.py
+      - name: Import FastAPI application
+        run: python -c "import main; assert main.app is not None; print('FastAPI app import OK')"
