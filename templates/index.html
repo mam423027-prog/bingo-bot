@@ -201,7 +201,8 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
-        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 349952871;
+        const initData = tg && tg.initData ? tg.initData : "query_id=TEST&user=%7B%22id%22%3A349952871%7D";
+
         let userBalance = 500;
         const selectedTickets = new Set();
         const purchasedTickets = [];
@@ -209,7 +210,6 @@
         const pricePerTicket = 10;
         const totalAvailableTickets = 200;
 
-        // --- WebSocket Connection ---
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
         
@@ -295,7 +295,7 @@
                     const response = await fetch('/api/buy', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId, count: ticketsArray.length, tickets: ticketsArray })
+                        body: JSON.stringify({ init_data: initData, count: ticketsArray.length, tickets: ticketsArray })
                     });
                     const data = await response.json();
                     
@@ -390,7 +390,8 @@
 
         async function fetchUserData() {
             try {
-                const res = await fetch(`/api/user/${userId}`);
+                const encodedInitData = encodeURIComponent(initData);
+                const res = await fetch(`/api/user/${encodedInitData}`);
                 const data = await res.json();
                 userBalance = data.balance;
                 document.getElementById('user-balance').innerText = `${userBalance} ETB`;
