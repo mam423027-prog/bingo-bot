@@ -9,7 +9,7 @@ from aiogram import Bot, Dispatcher, types
 
 logging.basicConfig(level=logging.INFO)
 
-BOT_TOKEN = "8636562924:AAHb4elV7z3z85uE9hTScby3uBu8LA-WPWw"
+BOT_TOKEN = "8636562924:AAHkgsDbnSmusMp2EXOLNCjUI8nU-uHlNWs"
 WEBAPP_URL = "https://hagere-bingo-bot.onrender.com"
 ADMIN_IDS = [349952871]
 
@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         asyncio.create_task(dp.start_polling(reset_webhook=True))
-        logging.info("Bot started successfully.")
+        logging.info("Bot started successfully with fresh token.")
     except Exception as e:
         logging.error(f"Startup error: {e}")
     yield
@@ -31,7 +31,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
 
-# --- Telegram Bot Handler ---
 @dp.message_handler(commands=['admin'])
 async def admin_cmd(message: types.Message):
     if message.from_user.id in ADMIN_IDS:
@@ -57,7 +56,6 @@ async def start_cmd(message: types.Message):
         parse_mode="Markdown"
     )
 
-# --- Web Routes ---
 @app.get("/", response_class=HTMLResponse)
 async def serve_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
