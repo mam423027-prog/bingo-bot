@@ -142,10 +142,10 @@ async def init_db():
             )
         """)
         defaults = {
-            "round_id": 1025,
-            "prize_pool": 1500,
+            "round_id": 1,
+            "prize_pool": 0,
             "ticket_price": 10,
-            "pending_withdrawals": 850,
+            "pending_withdrawals": 0,
         }
         for key, value in defaults.items():
             await db.execute(
