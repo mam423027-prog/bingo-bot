@@ -18,7 +18,7 @@ ADMIN_IDS = [349952871]
 DB_FILE = "bingo.db"
 
 bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 class ConnectionManager:
     def __init__(self):
@@ -101,7 +101,7 @@ async def lifespan(app: FastAPI):
     await init_db()
     try:
         await bot.delete_webhook(drop_pending_updates=True)
-        asyncio.create_task(dp.start_polling(reset_webhook=True))
+        asyncio.create_task(dp.start_polling(bot, reset_webhook=True))
         logging.info("Bot started successfully.")
     except Exception as e:
         logging.error(f"Startup error: {e}")
