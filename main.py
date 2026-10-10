@@ -111,7 +111,7 @@ async def init_db():
         await db.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY,
-                balance INTEGER NOT NULL DEFAULT 500 CHECK(balance >= 0),
+                balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0),
                 total_deposits INTEGER NOT NULL DEFAULT 0 CHECK(total_deposits >= 0)
             )
         """)
@@ -235,7 +235,7 @@ async def get_user_profile(x_telegram_init_data: str | None = Header(default=Non
     user_id = identity["user_id"]
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute(
-            "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 500, 0)",
+            "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 0, 0)",
             (user_id,),
         )
         await db.commit()
@@ -254,7 +254,7 @@ async def process_deposit(
     identity = authenticated_user(x_telegram_init_data)
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute(
-            "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 500, 0)",
+            "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 0, 0)",
             (identity["user_id"],),
         )
         await db.execute(
@@ -289,7 +289,7 @@ async def buy_tickets(
         await db.execute("BEGIN IMMEDIATE")
         try:
             await db.execute(
-                "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 500, 0)",
+                "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 0, 0)",
                 (user_id,),
             )
             async with db.execute("SELECT value FROM game_state WHERE key='round_id'") as cursor:
