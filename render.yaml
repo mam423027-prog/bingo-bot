@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: bingo-bot
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_IDS
+        sync: false
+      - key: DATABASE_PATH
+        value: /var/data/bingo.db
+    disk:
+      name: bingo-data
+      mountPath: /var/data
+      sizeGB: 1
