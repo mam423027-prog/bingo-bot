@@ -270,7 +270,7 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
-        const initData = tg && tg.initData ? tg.initData : "query_id=TEST";
+        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 349952871;
 
         let userBalance = 500;
         const selectedTickets = new Set();
@@ -360,7 +360,7 @@
                 const res = await fetch('/api/deposit', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ init_data: initData, amount: amount, payment_method: method, tx_ref: ref })
+                    body: JSON.stringify({ user_id: userId, amount: amount, payment_method: method, tx_ref: ref })
                 });
                 const data = await res.json();
                 if (res.ok) {
@@ -395,7 +395,7 @@
                     const response = await fetch('/api/buy', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ init_data: initData, count: ticketsArray.length, tickets: ticketsArray })
+                        body: JSON.stringify({ user_id: userId, count: ticketsArray.length, tickets: ticketsArray })
                     });
                     const data = await response.json();
                     
@@ -493,7 +493,7 @@
                 const res = await fetch('/api/user', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ init_data: initData })
+                    body: JSON.stringify({ user_id: userId })
                 });
                 const data = await res.json();
                 userBalance = data.balance;

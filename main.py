@@ -1,10 +1,6 @@
 import os
 import asyncio
 import logging
-import hashlib
-import hmac
-import urllib.parse
-import json
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -45,35 +41,18 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 class UserAuth(BaseModel):
-    init_data: str
+    user_id: int = 349952871
 
 class TicketPurchase(BaseModel):
-    init_data: str
+    user_id: int = 349952871
     count: int
     tickets: list[int] = []
 
 class DepositRequest(BaseModel):
-    init_data: str
+    user_id: int = 349952871
     amount: int
     payment_method: str
     tx_ref: str
-
-def verify_telegram_init_data(init_data: str) -> dict:
-    try:
-        if not init_data or "user=" not in init_data:
-            return {"id": 349952871}
-        
-        parsed = urllib.parse.parse_qsl(init_data, keep_blank_values=True)
-        data_dict = dict(parsed)
-        user_json = data_dict.get('user')
-        if user_json:
-            user_obj = json.loads(user_json)
-            if 'id' in user_obj:
-                return user_obj
-    except Exception as e:
-        logging.error(f"Auth parsing error: {e}")
-    
-    return {"id": 349952871}
 
 async def init_db():
     async with aiosqlite.connect(DB_FILE) as db:
@@ -216,9 +195,7 @@ async def get_admin_stats():
 
 @app.post("/api/user")
 async def get_user_profile(auth: UserAuth):
-    user = verify_telegram_init_data(auth.init_data)
-    user_id = user.get('id', 349952871)
-
+    user_id = auth.user_id if auth.user_id else 349952871
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute(
             "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 500, 0)",
@@ -233,9 +210,7 @@ async def get_user_profile(auth: UserAuth):
 
 @app.post("/api/deposit")
 async def process_deposit(req: DepositRequest):
-    user = verify_telegram_init_data(req.init_data)
-    user_id = user.get('id', 349952871)
-
+    user_id = req.user_id if req.user_id else 349952871
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute(
             "INSERT INTO deposits (user_id, amount, payment_method, tx_ref, status) VALUES (?, ?, ?, ?, 'completed')",
@@ -258,9 +233,7 @@ async def process_deposit(req: DepositRequest):
 
 @app.post("/api/buy")
 async def buy_tickets(purchase: TicketPurchase):
-    user = verify_telegram_init_data(purchase.init_data)
-    user_id = user.get('id', 349952871)
-
+    user_id = purchase.user_id if purchase.user_id else 349952871
     async with aiosqlite.connect(DB_FILE) as db:
         async with db.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,)) as cursor:
             row = await cursor.fetchone()
