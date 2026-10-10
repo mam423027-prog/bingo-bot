@@ -55,7 +55,7 @@
             background: linear-gradient(135deg, #0284c7, #38bdf8);
             color: #000;
             border: none;
-            padding: 10px 16px;
+            padding: 12px 16px;
             border-radius: 10px;
             font-weight: 700;
             cursor: pointer;
@@ -74,12 +74,12 @@
             <div class="kpi-val" id="stat-users">...</div>
         </div>
         <div class="kpi-card">
-            <div class="kpi-title">Active Game</div>
-            <div class="kpi-val" id="stat-game" style="color:var(--accent-glow);">#1024</div>
+            <div class="kpi-title">Active Round</div>
+            <div class="kpi-val" id="stat-game" style="color:var(--accent-glow);">...</div>
         </div>
         <div class="kpi-card">
-            <div class="kpi-title">Deposits (ETB)</div>
-            <div class="kpi-val" id="stat-deposits" style="color:var(--success);">...</div>
+            <div class="kpi-title">Prize Pool (ETB)</div>
+            <div class="kpi-val" id="stat-pool" style="color:var(--success);">...</div>
         </div>
         <div class="kpi-card">
             <div class="kpi-title">Pending Cashouts</div>
@@ -89,8 +89,8 @@
 
     <div class="section-box">
         <div class="section-title">⚡ Game Engine Controls</div>
-        <button onclick="alert('Next Bingo Game Started!')">🚀 Trigger New Game Draw</button>
-        <button style="background:linear-gradient(135deg, #ef4444, #dc2626); color:#fff;" onclick="alert('Active game cancelled.')">⚠️ Stop Current Game</button>
+        <button onclick="triggerDraw()">🚀 Trigger New Game Draw</button>
+        <button style="background:linear-gradient(135deg, #ef4444, #dc2626); color:#fff;" onclick="alert('Current round locked.')">⚠️ Lock Active Round</button>
     </div>
 
     <script>
@@ -99,13 +99,28 @@
                 const res = await fetch('/api/admin/stats');
                 const data = await res.json();
                 document.getElementById('stat-users').innerText = data.total_users;
-                document.getElementById('stat-deposits').innerText = data.total_deposits;
-                document.getElementById('stat-withdrawals').innerText = data.pending_withdrawals;
+                document.getElementById('stat-game').innerText = "#" + data.active_game_id;
+                document.getElementById('stat-pool').innerText = data.prize_pool.toLocaleString() + " ETB";
+                document.getElementById('stat-withdrawals').innerText = data.pending_withdrawals + " ETB";
             } catch (e) {
                 console.error("Failed to load stats", e);
             }
         }
+
+        async function triggerDraw() {
+            if (!confirm("Are you sure you want to draw numbers and start the next round?")) return;
+            try {
+                const res = await fetch('/api/admin/start-draw', { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                fetchStats();
+            } catch (e) {
+                alert("Failed to execute game draw.");
+            }
+        }
+
         fetchStats();
+        setInterval(fetchStats, 5000);
     </script>
 </body>
 </html>

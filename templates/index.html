@@ -116,11 +116,11 @@
     <div class="stat-banner">
         <div class="stat-box">
             <div class="stat-title">Active Round</div>
-            <div class="stat-val" style="color: var(--accent);">#1025</div>
+            <div class="stat-val" id="lobby-round" style="color: var(--accent);">#1025</div>
         </div>
         <div class="stat-box">
             <div class="stat-title">Total Prize Pool</div>
-            <div class="stat-val" style="color: var(--success);" id="prize-pool">1,500 ETB</div>
+            <div class="stat-val" style="color: var(--success);" id="lobby-pool">1,500 ETB</div>
         </div>
     </div>
 
@@ -149,19 +149,37 @@
             document.getElementById('total-price').innerText = count * pricePerTicket;
         }
 
-        function buyTickets() {
+        async function buyTickets() {
             const totalPrice = count * pricePerTicket;
-            if (tg) {
-                tg.showConfirm(`Confirm purchase of ${count} ticket(s) for ${totalPrice} ETB?`, (ok) => {
-                    if (ok) {
-                        tg.sendData(JSON.stringify({ action: "buy_tickets", count: count }));
-                        tg.close();
+            if (confirm(`Confirm purchase of ${count} ticket(s) for ${totalPrice} ETB?`)) {
+                try {
+                    const response = await fetch('/api/buy', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ count: count })
+                    });
+                    const data = await response.json();
+                    if (response.ok) {
+                        alert(data.message);
+                        document.getElementById('lobby-pool').innerText = data.new_prize_pool.toLocaleString() + " ETB";
+                    } else {
+                        alert(data.message);
                     }
-                });
-            } else {
-                alert(`Purchased ${count} ticket(s) for ${totalPrice} ETB!`);
+                } catch (e) {
+                    alert("Transaction failed. Please try again.");
+                }
             }
         }
+
+        async function syncLobby() {
+            try {
+                const res = await fetch('/api/admin/stats');
+                const data = await res.json();
+                document.getElementById('lobby-round').innerText = "#" + data.active_game_id;
+                document.getElementById('lobby-pool').innerText = data.prize_pool.toLocaleString() + " ETB";
+            } catch (e) {}
+        }
+        syncLobby();
     </script>
 </body>
 </html>
