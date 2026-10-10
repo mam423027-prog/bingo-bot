@@ -96,16 +96,18 @@ async def init_db():
                 await db.execute("INSERT INTO game_state (key, value) VALUES ('pending_withdrawals', 850)")
                 await db.commit()
 
+async def start_telegram_polling():
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        await dp.start_polling(reset_webhook=True)
+    except Exception as e:
+        logging.error(f"Polling error: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    try:
-        await bot.delete_webhook(drop_pending_updates=True)
-        # Start aiogram polling background task compatible with v2
-        asyncio.create_task(dp.start_polling(reset_webhook=True))
-        logging.info("Bot started successfully.")
-    except Exception as e:
-        logging.error(f"Startup error: {e}")
+    asyncio.create_task(start_telegram_polling())
+    logging.info("FastAPI and Telegram Bot background startup initiated.")
     yield
     session = await bot.get_session()
     await session.close()
