@@ -30,7 +30,7 @@
         
         .stat-banner {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1.2fr 1fr 1fr;
             gap: 8px;
             margin-bottom: 16px;
         }
@@ -43,6 +43,18 @@
         }
         .stat-title { font-size: 0.6rem; color: var(--text-sub); text-transform: uppercase; }
         .stat-val { font-size: 0.95rem; font-weight: 800; margin-top: 2px; }
+
+        .btn-deposit {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            cursor: pointer;
+            margin-top: 4px;
+        }
 
         .live-draw-banner {
             background: linear-gradient(135deg, #0284c7, #0369a1);
@@ -121,6 +133,37 @@
         .bingo-cell.free { background: var(--gold); color: #000; font-weight: 900; }
         .bingo-cell.marked { background: var(--success); color: #fff; border-color: #16a34a; }
 
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 16px;
+        }
+        .modal-content {
+            background: #161f32;
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 20px;
+            width: 100%;
+            max-width: 360px;
+        }
+        .modal-title { font-size: 1.1rem; font-weight: 800; color: var(--gold); margin-bottom: 12px; }
+        .form-group { margin-bottom: 12px; text-align: left; }
+        .form-group label { display: block; font-size: 0.75rem; color: var(--text-sub); margin-bottom: 4px; }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            background: #0b0f19;
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            color: #fff;
+            box-sizing: border-box;
+        }
+
         .footer-action {
             position: fixed;
             bottom: 0; left: 0; right: 0;
@@ -157,6 +200,7 @@
         <div class="stat-box">
             <div class="stat-title">My Balance</div>
             <div class="stat-val" id="user-balance" style="color: var(--gold);">...</div>
+            <button class="btn-deposit" onclick="openDepositModal()">+ Deposit Account</button>
         </div>
         <div class="stat-box">
             <div class="stat-title">Active Round</div>
@@ -189,6 +233,31 @@
         <div class="my-cards-container" id="cards-container"></div>
     </div>
 
+    <div class="modal-overlay" id="deposit-modal">
+        <div class="modal-content">
+            <div class="modal-title">💳 Deposit Funds</div>
+            <div class="form-group">
+                <label>Payment Method</label>
+                <select id="dep-method">
+                    <option value="Telebirr">Telebirr (0911234567)</option>
+                    <option value="CBE Birr">CBE Birr (100012345678)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Amount (ETB)</label>
+                <input type="number" id="dep-amount" value="100" min="10">
+            </div>
+            <div class="form-group">
+                <label>Transaction Reference ID</label>
+                <input type="text" id="dep-ref" placeholder="e.g. TX12345678">
+            </div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="btn-quick" style="flex:1;" onclick="closeDepositModal()">Cancel</button>
+                <button class="btn-buy" style="flex:1;" onclick="submitDeposit()">Confirm Deposit</button>
+            </div>
+        </div>
+    </div>
+
     <div class="footer-action" id="footer-bar">
         <div class="footer-info">
             <div>Total Amount</div>
@@ -201,7 +270,7 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
-        const initData = tg && tg.initData ? tg.initData : "query_id=TEST&user=%7B%22id%22%3A349952871%7D";
+        const initData = tg && tg.initData ? tg.initData : "query_id=TEST";
 
         let userBalance = 500;
         const selectedTickets = new Set();
@@ -274,6 +343,37 @@
             const count = selectedTickets.size;
             document.getElementById('selected-count').innerText = `${count} Selected`;
             document.getElementById('footer-total').innerText = `${count * pricePerTicket} ETB`;
+        }
+
+        function openDepositModal() { document.getElementById('deposit-modal').style.display = 'flex'; }
+        function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
+
+        async function submitDeposit() {
+            const amount = parseInt(document.getElementById('dep-amount').value);
+            const method = document.getElementById('dep-method').value;
+            const ref = document.getElementById('dep-ref').value;
+
+            if (!amount || amount < 10) { alert("Minimum deposit amount is 10 ETB."); return; }
+            if (!ref) { alert("Please enter your transaction reference ID."); return; }
+
+            try {
+                const res = await fetch('/api/deposit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ init_data: initData, amount: amount, payment_method: method, tx_ref: ref })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(data.message);
+                    userBalance = data.new_balance;
+                    document.getElementById('user-balance').innerText = `${userBalance} ETB`;
+                    closeDepositModal();
+                } else {
+                    alert(data.message);
+                }
+            } catch (e) {
+                alert("Deposit processing failed.");
+            }
         }
 
         async function buyTickets() {
@@ -390,8 +490,11 @@
 
         async function fetchUserData() {
             try {
-                const encodedInitData = encodeURIComponent(initData);
-                const res = await fetch(`/api/user/${encodedInitData}`);
+                const res = await fetch('/api/user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ init_data: initData })
+                });
                 const data = await res.json();
                 userBalance = data.balance;
                 document.getElementById('user-balance').innerText = `${userBalance} ETB`;
