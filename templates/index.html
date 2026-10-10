@@ -40,19 +40,19 @@
         }
         .stat-banner {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
             margin-bottom: 16px;
         }
         .stat-box {
             background: var(--card-bg);
             border: 1px solid var(--card-border);
-            padding: 10px;
+            padding: 8px;
             border-radius: 12px;
             text-align: center;
         }
-        .stat-title { font-size: 0.65rem; color: var(--text-sub); text-transform: uppercase; }
-        .stat-val { font-size: 1.1rem; font-weight: 800; margin-top: 2px; }
+        .stat-title { font-size: 0.6rem; color: var(--text-sub); text-transform: uppercase; }
+        .stat-val { font-size: 0.95rem; font-weight: 800; margin-top: 2px; }
 
         .section-box {
             background: var(--card-bg);
@@ -91,7 +91,7 @@
             display: grid;
             grid-template-columns: repeat(10, 1fr);
             gap: 6px;
-            max-height: 220px;
+            max-height: 200px;
             overflow-y: auto;
             padding: 4px;
         }
@@ -113,6 +113,51 @@
             color: #fff;
             border-color: #16a34a;
             box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+        }
+
+        /* --- Bingo Board Cards Display --- */
+        .my-cards-container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .bingo-card {
+            background: #0b0f19;
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            padding: 10px;
+        }
+        .bingo-card-header {
+            text-align: center;
+            font-weight: 800;
+            color: var(--gold);
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .bingo-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            text-align: center;
+        }
+        .bingo-header-cell {
+            font-weight: 900;
+            color: var(--accent);
+            padding: 4px 0;
+            font-size: 0.85rem;
+        }
+        .bingo-cell {
+            background: #161f32;
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 6px 0;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .bingo-cell.free {
+            background: var(--gold);
+            color: #000;
+            font-weight: 900;
         }
 
         .footer-action {
@@ -148,18 +193,24 @@
         <p>Choose your lucky ticket numbers (1 - 200)</p>
     </div>
 
+    <!-- Top KPI Banner with Live User Balance -->
     <div class="stat-banner">
+        <div class="stat-box">
+            <div class="stat-title">My Balance</div>
+            <div class="stat-val" id="user-balance" style="color: var(--gold);">500 ETB</div>
+        </div>
         <div class="stat-box">
             <div class="stat-title">Active Round</div>
             <div class="stat-val" id="lobby-round" style="color: var(--accent);">#1025</div>
         </div>
         <div class="stat-box">
-            <div class="stat-title">Total Prize Pool</div>
-            <div class="stat-val" style="color: var(--success);" id="lobby-pool">1,500 ETB</div>
+            <div class="stat-title">Prize Pool</div>
+            <div class="stat-val" id="lobby-pool" style="color: var(--success);">1,500 ETB</div>
         </div>
     </div>
 
-    <div class="section-box">
+    <!-- Ticket Selector View -->
+    <div class="section-box" id="selector-section">
         <div class="section-title">
             <span>🎫 Select Tickets (10 ETB / Ticket)</span>
             <span id="selected-count" style="color:var(--gold);">0 Selected</span>
@@ -169,12 +220,19 @@
             <button class="btn-quick" onclick="quickSelect(10)">Pick 10</button>
             <button class="btn-quick" onclick="clearSelection()">Clear All</button>
         </div>
-        <div class="tickets-grid" id="grid-container">
-            <!-- Dynamically populated ticket cells -->
-        </div>
+        <div class="tickets-grid" id="grid-container"></div>
     </div>
 
-    <div class="footer-action">
+    <!-- Purchased Ticket Board View (Initially Hidden) -->
+    <div class="section-box" id="purchased-section" style="display: none;">
+        <div class="section-title">
+            <span>📋 My Active Bingo Cards</span>
+            <button class="btn-quick" onclick="showSelector()">+ Buy More</button>
+        </div>
+        <div class="my-cards-container" id="cards-container"></div>
+    </div>
+
+    <div class="footer-action" id="footer-bar">
         <div class="footer-info">
             <div>Total Amount</div>
             <span id="footer-total">0 ETB</span>
@@ -186,11 +244,13 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
+        let userBalance = 500;
         const selectedTickets = new Set();
+        const purchasedTickets = [];
         const pricePerTicket = 10;
         const totalAvailableTickets = 200;
 
-        // Render ticket grid (1 to 200)
+        // Populate Ticket Picker Grid
         const gridContainer = document.getElementById('grid-container');
         for (let i = 1; i <= totalAvailableTickets; i++) {
             const cell = document.createElement('div');
@@ -208,7 +268,7 @@
                 cell.classList.remove('selected');
             } else {
                 if (selectedTickets.size >= 50) {
-                    alert("You can select a maximum of 50 tickets per round.");
+                    alert("Maximum 50 tickets allowed per purchase.");
                     return;
                 }
                 selectedTickets.add(num);
@@ -247,11 +307,17 @@
 
         async function buyTickets() {
             if (selectedTickets.size === 0) {
-                alert("Please select at least one ticket number.");
+                alert("Please select at least one ticket.");
                 return;
             }
+
             const ticketsArray = Array.from(selectedTickets);
             const totalPrice = ticketsArray.length * pricePerTicket;
+
+            if (totalPrice > userBalance) {
+                alert(`Insufficient balance! Your balance is ${userBalance} ETB.`);
+                return;
+            }
 
             if (confirm(`Confirm purchase of ${ticketsArray.length} ticket(s) [${ticketsArray.join(', ')}] for ${totalPrice} ETB?`)) {
                 try {
@@ -261,10 +327,16 @@
                         body: JSON.stringify({ count: ticketsArray.length, tickets: ticketsArray })
                     });
                     const data = await response.json();
+                    
                     if (response.ok) {
-                        alert(data.message);
+                        // Deduct balance and add purchased cards
+                        userBalance -= totalPrice;
+                        document.getElementById('user-balance').innerText = `${userBalance} ETB`;
                         document.getElementById('lobby-pool').innerText = data.new_prize_pool.toLocaleString() + " ETB";
+                        
+                        ticketsArray.forEach(id => purchasedTickets.push(id));
                         clearSelection();
+                        renderPurchasedBoards();
                     } else {
                         alert(data.message);
                     }
@@ -272,6 +344,62 @@
                     alert("Transaction failed. Please try again.");
                 }
             }
+        }
+
+        function renderPurchasedBoards() {
+            const container = document.getElementById('cards-container');
+            container.innerHTML = '';
+
+            purchasedTickets.forEach(ticketNum => {
+                const card = document.createElement('div');
+                card.className = 'bingo-card';
+                
+                let boardHTML = `<div class="bingo-card-header">TICKET #${ticketNum}</div>`;
+                boardHTML += `<div class="bingo-grid">
+                    <div class="bingo-header-cell">B</div>
+                    <div class="bingo-header-cell">I</div>
+                    <div class="bingo-header-cell">N</div>
+                    <div class="bingo-header-cell">G</div>
+                    <div class="bingo-header-cell">O</div>`;
+
+                // Generate deterministic 5x5 board numbers for this ticket
+                const cardNumbers = generateBingoNumbers(ticketNum);
+                for (let r = 0; r < 5; r++) {
+                    for (let c = 0; c < 5; c++) {
+                        if (r === 2 && c === 2) {
+                            boardHTML += `<div class="bingo-cell free">FREE</div>`;
+                        } else {
+                            boardHTML += `<div class="bingo-cell">${cardNumbers[c][r]}</div>`;
+                        }
+                    }
+                }
+                boardHTML += `</div>`;
+                card.innerHTML = boardHTML;
+                container.appendChild(card);
+            });
+
+            document.getElementById('purchased-section').style.display = 'block';
+        }
+
+        function generateBingoNumbers(seed) {
+            // Generates a standard Bingo card: B(1-15), I(16-30), N(31-45), G(46-60), O(61-75)
+            const columns = [[], [], [], [], []];
+            const ranges = [[1, 15], [16, 30], [31, 45], [46, 60], [61, 75]];
+            
+            for (let i = 0; i < 5; i++) {
+                let start = ranges[i][0];
+                let end = ranges[i][1];
+                let nums = [];
+                for (let n = start; n <= end; n++) nums.push(n);
+                // Pseudo-random shuffle based on ticket seed
+                nums.sort((a, b) => ((a * seed * 17) % 23) - ((b * seed * 17) % 23));
+                columns[i] = nums.slice(0, 5);
+            }
+            return columns;
+        }
+
+        function showSelector() {
+            document.getElementById('selector-section').scrollIntoView({ behavior: 'smooth' });
         }
 
         async function syncLobby() {
