@@ -270,9 +270,9 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
-        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 349952871;
+        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : null;
 
-        let userBalance = 500;
+        let userBalance = 0;
         const selectedTickets = new Set();
         const purchasedTickets = [];
         const drawnNumbers = new Set();
@@ -498,7 +498,7 @@
                 userBalance = data.balance;
                 document.getElementById('user-balance').innerText = `${userBalance} ETB`;
             } catch (e) {
-                document.getElementById('user-balance').innerText = `500 ETB`;
+                document.getElementById('user-balance').innerText = '0 ETB';
             }
         }
 
