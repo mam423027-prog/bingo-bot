@@ -200,7 +200,7 @@
         <div class="stat-box">
             <div class="stat-title">My Balance</div>
             <div class="stat-val" id="user-balance" style="color: var(--gold);">...</div>
-            <button class="btn-deposit" onclick="openDepositModal()">+ Deposit Account</button>
+            <button class="btn-deposit" disabled title="Payment verification is not configured">Deposits temporarily unavailable</button>
         </div>
         <div class="stat-box">
             <div class="stat-title">Active Round</div>
@@ -239,8 +239,8 @@
             <div class="form-group">
                 <label>Payment Method</label>
                 <select id="dep-method">
-                    <option value="Telebirr">Telebirr (0911234567)</option>
-                    <option value="CBE Birr">CBE Birr (100012345678)</option>
+                    <option value="Telebirr">Telebirr</option>
+                    <option value="CBE Birr">CBE Birr</option>
                 </select>
             </div>
             <div class="form-group">
@@ -270,9 +270,9 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
-        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 349952871;
+        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : null;
 
-        let userBalance = 500;
+        let userBalance = 0;
         const selectedTickets = new Set();
         const purchasedTickets = [];
         const drawnNumbers = new Set();
@@ -349,31 +349,7 @@
         function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
 
         async function submitDeposit() {
-            const amount = parseInt(document.getElementById('dep-amount').value);
-            const method = document.getElementById('dep-method').value;
-            const ref = document.getElementById('dep-ref').value;
-
-            if (!amount || amount < 10) { alert("Minimum deposit amount is 10 ETB."); return; }
-            if (!ref) { alert("Please enter your transaction reference ID."); return; }
-
-            try {
-                const res = await fetch('/api/deposit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, amount: amount, payment_method: method, tx_ref: ref })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    alert(data.message);
-                    userBalance = data.new_balance;
-                    document.getElementById('user-balance').innerText = `${userBalance} ETB`;
-                    closeDepositModal();
-                } else {
-                    alert(data.message);
-                }
-            } catch (e) {
-                alert("Deposit processing failed.");
-            }
+            alert("Deposits are disabled until secure payment-provider verification is configured. No funds will be credited.");
         }
 
         async function buyTickets() {
@@ -394,8 +370,8 @@
                 try {
                     const response = await fetch('/api/buy', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId, count: ticketsArray.length, tickets: ticketsArray })
+                        headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg ? tg.initData : '' },
+                        body: JSON.stringify({ count: ticketsArray.length, tickets: ticketsArray })
                     });
                     const data = await response.json();
                     
@@ -408,7 +384,7 @@
                         clearSelection();
                         renderPurchasedBoards();
                     } else {
-                        alert(data.message);
+                        alert(data.detail || data.message || 'Request failed. Please try again.');
                     }
                 } catch (e) {
                     alert("Transaction failed. Please try again.");
@@ -492,20 +468,19 @@
             try {
                 const res = await fetch('/api/user', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId })
+                    headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg ? tg.initData : '' }
                 });
                 const data = await res.json();
                 userBalance = data.balance;
                 document.getElementById('user-balance').innerText = `${userBalance} ETB`;
             } catch (e) {
-                document.getElementById('user-balance').innerText = `500 ETB`;
+                document.getElementById('user-balance').innerText = '0 ETB';
             }
         }
 
         async function syncLobby() {
             try {
-                const res = await fetch('/api/admin/stats');
+                const res = await fetch('/api/lobby/stats');
                 const data = await res.json();
                 document.getElementById('lobby-round').innerText = "#" + data.active_game_id;
                 document.getElementById('lobby-pool').innerText = data.prize_pool.toLocaleString() + " ETB";

@@ -36,19 +36,21 @@
     <script>
         async function fetchStats() {
             try {
-                const res = await fetch('/api/admin/stats');
+                const res = await fetch('/api/admin/stats', { headers: { 'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || '' } });
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Administrator access denied');
                 document.getElementById('stat-users').innerText = data.total_users;
                 document.getElementById('stat-deposits').innerText = data.total_deposits.toLocaleString() + " ETB";
                 document.getElementById('stat-round').innerText = "#" + data.active_game_id;
                 document.getElementById('stat-pool').innerText = data.prize_pool.toLocaleString() + " ETB";
-            } catch (e) {}
+            } catch (e) { document.getElementById('stat-users').innerText = e.message || 'Access denied'; }
         }
 
         async function startDraw() {
             if (confirm("Start draw and broadcast new number?")) {
-                const res = await fetch('/api/admin/start-draw', { method: 'POST' });
+                const res = await fetch('/api/admin/start-draw', { method: 'POST', headers: { 'X-Telegram-Init-Data': window.Telegram?.WebApp?.initData || '' } });
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Draw failed');
                 alert(data.message);
                 fetchStats();
             }
