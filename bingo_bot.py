@@ -2,6 +2,7 @@ import asyncio
 import json
 import random
 import logging
+import os
 from aiogram import Bot, Dispatcher, Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
@@ -11,7 +12,9 @@ import aiosqlite
 logging.basicConfig(level=logging.INFO)
 
 # Configuration
-BOT_TOKEN = "8636562924:AAHb4elV7z3z85uE9hTScby3uBu8LA-WPWw"  # Replace with your token from @BotFather
+BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+if not BOT_TOKEN:
+    raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is required")
 DB_PATH = "bingo.db"
 
 # Initialize bot and dispatcher
