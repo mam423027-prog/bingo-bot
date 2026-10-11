@@ -239,8 +239,8 @@
             <div class="form-group">
                 <label>Payment Method</label>
                 <select id="dep-method">
-                    <option value="Telebirr">Telebirr (0911234567)</option>
-                    <option value="CBE Birr">CBE Birr (100012345678)</option>
+                    <option value="Telebirr">Telebirr</option>
+                    <option value="CBE Birr">CBE Birr</option>
                 </select>
             </div>
             <div class="form-group">
@@ -348,32 +348,8 @@
         function openDepositModal() { document.getElementById('deposit-modal').style.display = 'flex'; }
         function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
 
-        async function submitDeposit() {\n            alert("Deposits are disabled until secure payment-provider verification is configured. No funds will be credited.");\n            return;
-            const amount = parseInt(document.getElementById('dep-amount').value);
-            const method = document.getElementById('dep-method').value;
-            const ref = document.getElementById('dep-ref').value;
-
-            if (!amount || amount < 10) { alert("Minimum deposit amount is 10 ETB."); return; }
-            if (!ref) { alert("Please enter your transaction reference ID."); return; }
-
-            try {
-                const res = await fetch('/api/deposit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg ? tg.initData : '' },
-                    body: JSON.stringify({ amount: amount, payment_method: method, tx_ref: ref })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    alert(data.message);
-                    userBalance = data.new_balance;
-                    document.getElementById('user-balance').innerText = `${userBalance} ETB`;
-                    closeDepositModal();
-                } else {
-                    alert(data.message);
-                }
-            } catch (e) {
-                alert("Deposit processing failed.");
-            }
+        async function submitDeposit() {
+            alert("Deposits are disabled until secure payment-provider verification is configured. No funds will be credited.");
         }
 
         async function buyTickets() {
@@ -408,7 +384,7 @@
                         clearSelection();
                         renderPurchasedBoards();
                     } else {
-                        alert(data.message);
+                        alert(data.detail || data.message || 'Request failed. Please try again.');
                     }
                 } catch (e) {
                     alert("Transaction failed. Please try again.");
