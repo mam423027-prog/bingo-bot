@@ -20,6 +20,8 @@ jobs:
         run: python -m compileall -q main.py
       - name: Import FastAPI application
         run: python -c "import main; assert main.app is not None; print('FastAPI app import OK')"
+      - name: Run authentication regression tests
+        run: python -m unittest discover -s tests -v
       - name: Check inline frontend JavaScript syntax
         run: |
           python - <<'PY'
