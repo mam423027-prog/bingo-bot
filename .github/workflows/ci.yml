@@ -20,3 +20,37 @@ jobs:
         run: python -m compileall -q main.py
       - name: Import FastAPI application
         run: python -c "import main; assert main.app is not None; print('FastAPI app import OK')"
+      - name: Check inline frontend JavaScript syntax
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+
+          class InlineScripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.capture = False
+                  self.current = []
+                  self.scripts = []
+
+              def handle_starttag(self, tag, attrs):
+                  if tag == "script" and not dict(attrs).get("src"):
+                      self.capture = True
+                      self.current = []
+
+              def handle_data(self, data):
+                  if self.capture:
+                      self.current.append(data)
+
+              def handle_endtag(self, tag):
+                  if tag == "script" and self.capture:
+                      self.scripts.append("".join(self.current))
+                      self.capture = False
+
+          parser = InlineScripts()
+          parser.feed(Path("templates/index.html").read_text())
+          parser.feed(Path("templates/admin.html").read_text())
+          Path("/tmp/bingo-inline.js").write_text("\\n".join(parser.scripts))
+          assert parser.scripts, "No inline JavaScript found"
+          PY
+          node --check /tmp/bingo-inline.js
