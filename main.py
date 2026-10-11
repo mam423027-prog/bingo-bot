@@ -6,7 +6,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, urlparse
 
 import aiosqlite
 from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
@@ -69,7 +69,11 @@ def verify_telegram_init_data(init_data: str) -> dict:
         raise HTTPException(status_code=401, detail="Missing or invalid Telegram authentication data.")
 
     try:
-        parsed = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
+        pairs = parse_qsl(init_data, keep_blank_values=True, strict_parsing=True)
+        keys = [key for key, _ in pairs]
+        if len(keys) != len(set(keys)):
+            raise ValueError("Duplicate Telegram initData fields")
+        parsed = dict(pairs)
         received_hash = parsed.pop("hash")
         auth_date = int(parsed["auth_date"])
     except (ValueError, KeyError):
@@ -81,7 +85,7 @@ def verify_telegram_init_data(init_data: str) -> dict:
     if not hmac.compare_digest(expected_hash, received_hash):
         raise HTTPException(status_code=401, detail="Telegram authentication signature is invalid.")
     now = int(time.time())
-    if auth_date > now + 60 or now - auth_date > 86400:
+    if auth_date > now + 60 or now - auth_date > 3600:
         raise HTTPException(status_code=401, detail="Telegram authentication data has expired.")
 
     try:
@@ -219,12 +223,30 @@ async def init_db():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if ALLOW_DEV_AUTH and os.getenv("RENDER"):
+        raise RuntimeError("ALLOW_UNAUTHENTICATED_DEV must never be enabled on Render.")
+    if not ALLOW_DEV_AUTH and not BOT_TOKEN:
+        raise RuntimeError("BOT_TOKEN must be configured before the service can start.")
+    if not ALLOW_DEV_AUTH and not ADMIN_IDS:
+        raise RuntimeError("ADMIN_TELEGRAM_IDS must contain at least one administrator ID.")
     await init_db()
     logger.info("Database initialized at %s", DB_FILE)
     yield
 
 
 app = FastAPI(title="Bingo Bot API", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+    if request.url.scheme == "https":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return response
 
 
 @app.get("/health")
@@ -250,6 +272,11 @@ async def serve_admin(request: Request):
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    origin = websocket.headers.get("origin")
+    host = websocket.headers.get("host")
+    if origin and host and urlparse(origin).netloc.lower() != host.lower():
+        await websocket.close(code=1008)
+        return
     await manager.connect(websocket)
     try:
         while True:
@@ -311,24 +338,13 @@ async def process_deposit(
     req: DepositRequest,
     x_telegram_init_data: str | None = Header(default=None),
 ):
-    # Never credit a balance based only on a client-provided transaction reference.
-    # Integrate and verify an official payment-provider callback before enabling credits.
-    identity = authenticated_user(x_telegram_init_data)
-    async with aiosqlite.connect(DB_FILE) as db:
-        await db.execute(
-            "INSERT OR IGNORE INTO users (user_id, balance, total_deposits) VALUES (?, 0, 0)",
-            (identity["user_id"],),
-        )
-        await db.execute(
-            """INSERT OR IGNORE INTO deposits
-               (user_id, amount, payment_method, tx_ref, status)
-               VALUES (?, ?, ?, ?, 'pending')""",
-            (identity["user_id"], req.amount, req.payment_method, req.tx_ref),
-        )
-        await db.commit()
+    # Deliberately do not create a pending payment record or credit a balance:
+    # a client-supplied reference is not proof of payment. Add provider-specific
+    # server-side verification before enabling this endpoint.
+    authenticated_user(x_telegram_init_data)
     raise HTTPException(
         status_code=503,
-        detail="Deposits are temporarily unavailable until payment verification is configured. No funds were credited.",
+        detail="Deposits are unavailable until payment-provider verification is configured. No funds were credited.",
     )
 
 
@@ -395,20 +411,7 @@ async def buy_tickets(
 @app.post("/api/admin/start-draw")
 async def start_draw(x_telegram_init_data: str | None = Header(default=None)):
     require_admin(x_telegram_init_data)
-    async with aiosqlite.connect(DB_FILE) as db:
-        await db.execute("BEGIN IMMEDIATE")
-        async with db.execute("SELECT value FROM game_state WHERE key='round_id'") as cursor:
-            old_round = (await cursor.fetchone())[0]
-        new_round = old_round + 1
-        await db.execute("UPDATE game_state SET value=? WHERE key='round_id'", (new_round,))
-        await db.execute("UPDATE game_state SET value=1000 WHERE key='prize_pool'")
-        await db.commit()
-
-    import random
-    drawn_number = random.randint(1, 75)
-    await manager.broadcast({"type": "number_drawn", "number": drawn_number, "round_id": new_round})
-    return {
-        "status": "success",
-        "message": f"Draw started for Round #{new_round}. Number {drawn_number} broadcasted.",
-        "new_round": new_round,
-    }
+    raise HTTPException(
+        status_code=503,
+        detail="Drawing is disabled until the complete round, winning-ticket, and payout lifecycle is implemented and tested.",
+    )
