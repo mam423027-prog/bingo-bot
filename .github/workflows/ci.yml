@@ -50,7 +50,7 @@ jobs:
           parser = InlineScripts()
           parser.feed(Path("templates/index.html").read_text())
           parser.feed(Path("templates/admin.html").read_text())
-          Path("/tmp/bingo-inline.js").write_text("\\n".join(parser.scripts))
+          Path("/tmp/bingo-inline.js").write_text("\n".join(parser.scripts))
           assert parser.scripts, "No inline JavaScript found"
           PY
           node --check /tmp/bingo-inline.js
