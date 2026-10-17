@@ -23,13 +23,19 @@ router = Router()
 dp.include_router(router)
 
 
-def main_menu_keyboard():
+def main_menu_keyboard(user_id: int | None = None):
     rows = []
     if WEBAPP_URL.startswith("https://"):
         rows.append([InlineKeyboardButton(
             text="🎮 Open Hagere Bingo",
             web_app=WebAppInfo(url=WEBAPP_URL)
         )])
+        admin_id = os.getenv("ADMIN_TELEGRAM_ID", "").strip()
+        if user_id is not None and admin_id and str(user_id) == admin_id:
+            rows.append([InlineKeyboardButton(
+                text="🛡 Admin Dashboard",
+                web_app=WebAppInfo(url=WEBAPP_URL + "/admin")
+            )])
     rows.append([InlineKeyboardButton(text="💰 Check Balance", callback_data="check_balance")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -59,7 +65,7 @@ async def cmd_start(message: Message):
             "Welcome to Hagere Bingo!\n\n"
             "The game is not configured yet. Please try again later."
         )
-    await message.answer(message_text, reply_markup=main_menu_keyboard())
+    await message.answer(message_text, reply_markup=main_menu_keyboard(message.from_user.id))
 
 
 @router.message(Command("balance"))
