@@ -25,6 +25,10 @@ Players select Telebirr or CBE Birr, enter the transaction reference, and upload
 
 This repository does **not** perform automatic Telebirr API checkout. Only provide payment account details that the administrator has verified and approved; do not use sample account numbers.
 
+## Manual withdrawals
+
+Players can request a withdrawal to a Telebirr phone number or CBE Birr account. The requested amount is reserved from their wallet immediately. The administrator must send the payment manually, then mark the request paid and may record a payout reference. Rejecting a pending request returns the reserved amount to the wallet. Do not mark a request paid before confirming the payout succeeded.
+
 ## Before production
 
 1. Keep the pull request open until the branch has been reviewed and tested.
