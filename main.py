@@ -61,7 +61,8 @@ def verify_telegram_init_data(init_data: str) -> dict:
         if not received_hash:
             raise ValueError("missing hash")
         auth_date = int(pairs.get("auth_date", "0"))
-        if auth_date <= 0 or abs(time.time() - auth_date) > 86400:
+        now = time.time()
+        if auth_date <= 0 or auth_date > now + 30 or now - auth_date > 86400:
             raise HTTPException(status_code=401, detail="Telegram session expired. Reopen the app from Telegram.")
         data_check_string = "\n".join(f"{key}={value}" for key, value in sorted(pairs.items()))
         secret_key = hmac.new(b"WebAppData", token.encode(), hashlib.sha256).digest()
