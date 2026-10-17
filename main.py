@@ -134,8 +134,22 @@ async def init_db():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
-    logging.info("Database initialized at %s", DB_FILE)
-    yield
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is required.")
+    from bingo_bot import bot, dp
+    await bot.get_me()
+    bot_task = asyncio.create_task(dp.start_polling(bot))
+    logging.info("Database initialized at %s; Telegram bot polling started", DB_FILE)
+    try:
+        yield
+    finally:
+        bot_task.cancel()
+        try:
+            await bot_task
+        except asyncio.CancelledError:
+            pass
+        await bot.session.close()
 
 app = FastAPI(lifespan=lifespan)
 
