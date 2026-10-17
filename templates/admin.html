@@ -10,51 +10,221 @@
         h1 { color: #f59e0b; font-size: 1.3rem; text-align: center; }
         .card { background: #161f32; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
         .val { font-size: 1.2rem; font-weight: bold; color: #38bdf8; }
-        .btn { background: #22c55e; color: #fff; border: none; padding: 10px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .btn { background: #22c55e; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; margin: 4px 4px 4px 0; }
+        .danger { background: #dc2626; }
+        .secondary { background: #2563eb; }
+        .deposit { overflow-wrap: anywhere; }
+        .receipt { display:block; max-width:100%; max-height:360px; margin-top:8px; border-radius:8px; }
+        .muted { color:#94a3b8; font-size:.9rem; }
+        #status { white-space:pre-wrap; margin:10px 0; color:#fbbf24; }
     </style>
 </head>
 <body>
     <h1>👑 Admin Control Panel</h1>
-    <div class="card">
-        <div>Total Players</div>
-        <div class="val" id="stat-users">...</div>
-    </div>
-    <div class="card">
-        <div>Total Deposits</div>
-        <div class="val" id="stat-deposits">... ETB</div>
-    </div>
-    <div class="card">
-        <div>Active Round</div>
-        <div class="val" id="stat-round">...</div>
-    </div>
-    <div class="card">
-        <div>Prize Pool</div>
-        <div class="val" id="stat-pool">... ETB</div>
-    </div>
+    <div id="status">Checking Telegram administrator access…</div>
+    <div class="card"><div>Total Players</div><div class="val" id="stat-users">—</div></div>
+    <div class="card"><div>Approved Deposits</div><div class="val" id="stat-deposits">— ETB</div></div>
+    <div class="card"><div>Active Round</div><div class="val" id="stat-round">—</div></div>
+    <div class="card"><div>Prize Pool</div><div class="val" id="stat-pool">— ETB</div></div>
     <button class="btn" onclick="startDraw()">▶ Start Next Draw & Broadcast</button>
+    <h2>Manual Deposit Review</h2>
+    <p class="muted">Check the payment in your own Telebirr/CBE account before approving. Approval credits the player wallet.</p>
+    <div id="deposit-list"></div>
+    <h2>Manual Withdrawal Payouts</h2>
+    <p class="muted">Pay the player manually to the listed account first, then mark the request paid. Rejecting a request returns the reserved amount to the player's wallet.</p>
+    <div id="withdrawal-list"></div>
 
     <script>
-        async function fetchStats() {
-            try {
-                const res = await fetch('/api/admin/stats');
-                const data = await res.json();
-                document.getElementById('stat-users').innerText = data.total_users;
-                document.getElementById('stat-deposits').innerText = data.total_deposits.toLocaleString() + " ETB";
-                document.getElementById('stat-round').innerText = "#" + data.active_game_id;
-                document.getElementById('stat-pool').innerText = data.prize_pool.toLocaleString() + " ETB";
-            } catch (e) {}
+        const tg = window.Telegram ? window.Telegram.WebApp : null;
+        if (tg) tg.expand();
+        const initData = tg && tg.initData ? tg.initData : "";
+        const headers = () => ({ "X-Telegram-Init-Data": initData });
+        const statusEl = document.getElementById("status");
+
+        async function api(url, options = {}) {
+            const res = await fetch(url, { ...options, headers: { ...headers(), ...(options.headers || {}) } });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.detail || data.message || "Request failed (" + res.status + ")");
+            return data;
         }
 
-        async function startDraw() {
-            if (confirm("Start draw and broadcast new number?")) {
-                const res = await fetch('/api/admin/start-draw', { method: 'POST' });
-                const data = await res.json();
-                alert(data.message);
-                fetchStats();
+        async function fetchStats() {
+            if (!initData) {
+                statusEl.textContent = "Open this dashboard inside Telegram using your bot. Direct browser access is not authenticated.";
+                return;
+            }
+            try {
+                const data = await api('/api/admin/stats');
+                document.getElementById('stat-users').innerText = data.total_users;
+                document.getElementById('stat-deposits').innerText = Number(data.total_deposits).toLocaleString() + " ETB";
+                document.getElementById('stat-round').innerText = "#" + data.active_game_id;
+                document.getElementById('stat-pool').innerText = Number(data.prize_pool).toLocaleString() + " ETB";
+                statusEl.textContent = "Authenticated. Review each receipt against your payment account.";
+            } catch (e) { statusEl.textContent = e.message; }
+        }
+
+        async function loadDeposits() {
+            const container = document.getElementById("deposit-list");
+            container.replaceChildren();
+            try {
+                const data = await api('/api/admin/deposits');
+                if (!data.deposits.length) {
+                    container.textContent = "No deposit requests yet.";
+                    return;
+                }
+                for (const dep of data.deposits) {
+                    const card = document.createElement("div");
+                    card.className = "card deposit";
+                    const heading = document.createElement("h3");
+                    heading.textContent = "Deposit #" + dep.id + " — " + dep.status.toUpperCase();
+                    card.appendChild(heading);
+                    const details = document.createElement("p");
+                    details.textContent = "Player ID: " + dep.user_id + " | Amount: " + dep.amount + " ETB | Method: " + dep.payment_method;
+                    card.appendChild(details);
+                    const reference = document.createElement("p");
+                    reference.textContent = "Transaction reference: " + dep.tx_ref;
+                    card.appendChild(reference);
+                    const created = document.createElement("p");
+                    created.className = "muted";
+                    created.textContent = "Submitted: " + (dep.created_at || "time unavailable");
+                    card.appendChild(created);
+                    const receiptButton = document.createElement("button");
+                    receiptButton.className = "btn secondary";
+                    receiptButton.textContent = "View receipt";
+                    receiptButton.onclick = () => viewReceipt(dep.id, card);
+                    card.appendChild(receiptButton);
+                    if (dep.status === "pending") {
+                        const approve = document.createElement("button");
+                        approve.className = "btn";
+                        approve.textContent = "Approve & credit";
+                        approve.onclick = () => reviewDeposit(dep.id, "approve");
+                        card.appendChild(approve);
+                        const reject = document.createElement("button");
+                        reject.className = "btn danger";
+                        reject.textContent = "Reject";
+                        reject.onclick = () => reviewDeposit(dep.id, "reject");
+                        card.appendChild(reject);
+                    }
+                    container.appendChild(card);
+                }
+            } catch (e) {
+                container.textContent = "Could not load deposit requests: " + e.message;
             }
         }
 
+        async function loadWithdrawals() {
+            const container = document.getElementById("withdrawal-list");
+            container.replaceChildren();
+            try {
+                const data = await api('/api/admin/withdrawals');
+                if (!data.withdrawals.length) {
+                    container.textContent = "No withdrawal requests yet.";
+                    return;
+                }
+                for (const w of data.withdrawals) {
+                    const card = document.createElement("div");
+                    card.className = "card deposit";
+                    const heading = document.createElement("h3");
+                    heading.textContent = "Withdrawal #" + w.id + " — " + w.status.toUpperCase();
+                    card.appendChild(heading);
+                    const details = document.createElement("p");
+                    details.textContent = "Player ID: " + w.user_id + " | Amount: " + w.amount + " ETB | Method: " + w.payment_method;
+                    card.appendChild(details);
+                    const destination = document.createElement("p");
+                    destination.textContent = "Pay to: " + w.destination_account;
+                    card.appendChild(destination);
+                    const created = document.createElement("p");
+                    created.className = "muted";
+                    created.textContent = "Requested: " + (w.created_at || "time unavailable");
+                    card.appendChild(created);
+                    if (w.payout_ref) {
+                        const payout = document.createElement("p");
+                        payout.textContent = "Payout reference: " + w.payout_ref;
+                        card.appendChild(payout);
+                    }
+                    if (w.status === "pending") {
+                        const paid = document.createElement("button");
+                        paid.className = "btn";
+                        paid.textContent = "Mark paid";
+                        paid.onclick = () => markWithdrawalPaid(w.id);
+                        card.appendChild(paid);
+                        const reject = document.createElement("button");
+                        reject.className = "btn danger";
+                        reject.textContent = "Reject & refund";
+                        reject.onclick = () => rejectWithdrawal(w.id);
+                        card.appendChild(reject);
+                    }
+                    container.appendChild(card);
+                }
+            } catch (e) {
+                container.textContent = "Could not load withdrawal requests: " + e.message;
+            }
+        }
+
+        async function markWithdrawalPaid(id) {
+            if (!confirm("Have you sent this payout to the player's account? Only continue after the payment is complete.")) return;
+            const payoutRef = prompt("Optional payout transaction reference (leave blank if unavailable):", "") || "";
+            const form = new FormData();
+            form.append("payout_ref", payoutRef);
+            try {
+                const data = await api('/api/admin/withdrawals/' + id + '/paid', { method: 'POST', body: form });
+                alert(data.message || "Withdrawal marked paid.");
+                await loadWithdrawals();
+            } catch (e) { alert(e.message); }
+        }
+
+        async function rejectWithdrawal(id) {
+            if (!confirm("Reject this withdrawal and return the reserved amount to the player's wallet?")) return;
+            try {
+                const data = await api('/api/admin/withdrawals/' + id + '/reject', { method: 'POST' });
+                alert(data.message || "Withdrawal rejected.");
+                await Promise.all([fetchStats(), loadWithdrawals()]);
+            } catch (e) { alert(e.message); }
+        }
+
+        async function viewReceipt(id, card) {
+            try {
+                const res = await fetch('/api/admin/deposits/' + id + '/receipt', { headers: headers() });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || "Could not load receipt.");
+                }
+                const blob = await res.blob();
+                const old = card.querySelector(".receipt");
+                if (old && old.dataset.objectUrl) URL.revokeObjectURL(old.dataset.objectUrl);
+                const img = document.createElement("img");
+                img.className = "receipt";
+                img.alt = "Payment receipt for deposit " + id;
+                img.src = URL.createObjectURL(blob);
+                img.dataset.objectUrl = img.src;
+                card.appendChild(img);
+            } catch (e) { alert(e.message); }
+        }
+
+        async function reviewDeposit(id, action) {
+            const message = action === "approve"
+                ? "Confirm you checked this transaction in your payment account and want to credit the player's wallet?"
+                : "Reject this deposit request?";
+            if (!confirm(message)) return;
+            try {
+                const data = await api('/api/admin/deposits/' + id + '/' + action, { method: 'POST' });
+                alert(data.message || "Updated.");
+                await Promise.all([fetchStats(), loadDeposits()]);
+            } catch (e) { alert(e.message); }
+        }
+
+        async function startDraw() {
+            if (!confirm("Start the next draw and broadcast a new number?")) return;
+            try {
+                const data = await api('/api/admin/start-draw', { method: 'POST' });
+                alert(data.message);
+                fetchStats();
+            } catch (e) { alert(e.message); }
+        }
+
         fetchStats();
+        loadDeposits();
+        loadWithdrawals();
     </script>
 </body>
 </html>

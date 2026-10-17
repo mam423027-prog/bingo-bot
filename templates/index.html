@@ -200,7 +200,8 @@
         <div class="stat-box">
             <div class="stat-title">My Balance</div>
             <div class="stat-val" id="user-balance" style="color: var(--gold);">...</div>
-            <button class="btn-deposit" onclick="openDepositModal()">+ Deposit Account</button>
+            <button class="btn-deposit" onclick="openDepositModal()">+ Deposit</button>
+            <button class="btn-deposit" onclick="openWithdrawalModal()">− Withdraw</button>
         </div>
         <div class="stat-box">
             <div class="stat-title">Active Round</div>
@@ -236,11 +237,12 @@
     <div class="modal-overlay" id="deposit-modal">
         <div class="modal-content">
             <div class="modal-title">💳 Deposit Funds</div>
+            <p style="color:#fbbf24;font-size:.8rem;">Only transfer to the official payment account confirmed by the administrator. Your wallet is credited after manual review.</p>
             <div class="form-group">
                 <label>Payment Method</label>
                 <select id="dep-method">
-                    <option value="Telebirr">Telebirr (0911234567)</option>
-                    <option value="CBE Birr">CBE Birr (100012345678)</option>
+                    <option value="Telebirr">Telebirr (confirm official account)</option>
+                    <option value="CBE Birr">CBE Birr (confirm official account)</option>
                 </select>
             </div>
             <div class="form-group">
@@ -249,13 +251,47 @@
             </div>
             <div class="form-group">
                 <label>Transaction Reference ID</label>
-                <input type="text" id="dep-ref" placeholder="e.g. TX12345678">
+                <input type="text" id="dep-ref" maxlength="120" placeholder="Reference shown by your payment provider" required>
+            </div>
+            <div class="form-group">
+                <label>Payment Receipt (PNG, JPG, GIF, or WebP; max 5 MB)</label>
+                <input type="file" id="dep-receipt" accept="image/png,image/jpeg,image/gif,image/webp" required>
             </div>
             <div style="display:flex; gap:8px; margin-top:16px;">
                 <button class="btn-quick" style="flex:1;" onclick="closeDepositModal()">Cancel</button>
                 <button class="btn-buy" style="flex:1;" onclick="submitDeposit()">Confirm Deposit</button>
             </div>
         </div>
+    </div>
+
+    <div class="modal-overlay" id="withdrawal-modal">
+        <div class="modal-content">
+            <div class="modal-title">🏦 Request Withdrawal</div>
+            <p style="color:#fbbf24;font-size:.8rem;">Withdrawals are paid manually after review. The requested amount is reserved from your wallet; rejected requests return it.</p>
+            <div class="form-group">
+                <label>Payout Method</label>
+                <select id="withdraw-method">
+                    <option value="Telebirr">Telebirr</option>
+                    <option value="CBE Birr">CBE Birr</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Amount (ETB; minimum 50)</label>
+                <input type="number" id="withdraw-amount" min="50" max="100000" step="1" value="50">
+            </div>
+            <div class="form-group">
+                <label>Telebirr phone number or CBE Birr account</label>
+                <input type="text" id="withdraw-account" maxlength="80" placeholder="Your payout account" required>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="btn-quick" style="flex:1;" onclick="closeWithdrawalModal()">Cancel</button>
+                <button class="btn-buy" style="flex:1;" onclick="submitWithdrawal()">Submit</button>
+            </div>
+        </div>
+    </div>
+    <div class="section-box">
+        <div class="section-title">My Recent Withdrawals</div>
+        <div id="my-withdrawals">Open from Telegram to view requests.</div>
     </div>
 
     <div class="footer-action" id="footer-bar">
@@ -270,9 +306,10 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
-        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 349952871;
+        const telegramInitData = tg && tg.initData ? tg.initData : "";
+        const authHeaders = () => ({ "X-Telegram-Init-Data": telegramInitData });
 
-        let userBalance = 500;
+        let userBalance = 0;
         const selectedTickets = new Set();
         const purchasedTickets = [];
         const drawnNumbers = new Set();
@@ -348,28 +385,79 @@
         function openDepositModal() { document.getElementById('deposit-modal').style.display = 'flex'; }
         function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
 
+        function openWithdrawalModal() { document.getElementById('withdrawal-modal').style.display = 'flex'; }
+        function closeWithdrawalModal() { document.getElementById('withdrawal-modal').style.display = 'none'; }
+
+        async function submitWithdrawal() {
+            if (!telegramInitData) { alert("Please open Hagere Bingo from the Telegram bot."); return; }
+            const amount = parseInt(document.getElementById('withdraw-amount').value);
+            const method = document.getElementById('withdraw-method').value;
+            const account = document.getElementById('withdraw-account').value.trim();
+            if (!Number.isInteger(amount) || amount < 50 || amount > 100000) { alert("Withdrawal amount must be between 50 and 100,000 ETB."); return; }
+            if (!account) { alert("Enter your payout account."); return; }
+            const form = new FormData();
+            form.append('amount', String(amount));
+            form.append('payment_method', method);
+            form.append('destination_account', account);
+            try {
+                const res = await fetch('/api/withdraw', { method: 'POST', headers: authHeaders(), body: form });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Withdrawal request failed.");
+                alert(data.message || "Withdrawal submitted.");
+                closeWithdrawalModal();
+                await fetchUserData();
+                await loadMyWithdrawals();
+            } catch (e) { alert(e.message || "Withdrawal request failed."); }
+        }
+
+        async function loadMyWithdrawals() {
+            const container = document.getElementById("my-withdrawals");
+            if (!telegramInitData) { container.textContent = "Open from Telegram to view requests."; return; }
+            try {
+                const res = await fetch('/api/withdrawals', { headers: authHeaders() });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Could not load withdrawals.");
+                container.replaceChildren();
+                if (!data.withdrawals.length) { container.textContent = "No withdrawal requests yet."; return; }
+                for (const w of data.withdrawals) {
+                    const item = document.createElement("p");
+                    item.textContent = "#" + w.id + " — " + w.amount + " ETB — " + w.payment_method + " — " + w.status.toUpperCase() + (w.payout_ref ? " — Ref: " + w.payout_ref : "");
+                    container.appendChild(item);
+                }
+            } catch (e) { container.textContent = e.message; }
+        }
+
         async function submitDeposit() {
             const amount = parseInt(document.getElementById('dep-amount').value);
             const method = document.getElementById('dep-method').value;
-            const ref = document.getElementById('dep-ref').value;
+            const ref = document.getElementById('dep-ref').value.trim();
+            const receipt = document.getElementById('dep-receipt').files[0];
 
+            if (!telegramInitData) { alert("Please open Hagere Bingo from the Telegram bot."); return; }
             if (!amount || amount < 10) { alert("Minimum deposit amount is 10 ETB."); return; }
             if (!ref) { alert("Please enter your transaction reference ID."); return; }
+            if (!receipt) { alert("Please attach your payment receipt image."); return; }
+            if (receipt.size > 5 * 1024 * 1024) { alert("Receipt image must be 5 MB or smaller."); return; }
 
             try {
+                const form = new FormData();
+                form.append('amount', String(amount));
+                form.append('payment_method', method);
+                form.append('tx_ref', ref);
+                form.append('receipt', receipt);
                 const res = await fetch('/api/deposit', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, amount: amount, payment_method: method, tx_ref: ref })
+                    headers: authHeaders(),
+                    body: form
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    alert(data.message);
-                    userBalance = data.new_balance;
-                    document.getElementById('user-balance').innerText = `${userBalance} ETB`;
+                    alert(data.message || "Deposit request submitted for review.");
+                    document.getElementById('dep-ref').value = "";
+                    document.getElementById('dep-receipt').value = "";
                     closeDepositModal();
                 } else {
-                    alert(data.message);
+                    alert(data.detail || data.message || "Deposit request failed.");
                 }
             } catch (e) {
                 alert("Deposit processing failed.");
@@ -394,8 +482,8 @@
                 try {
                     const response = await fetch('/api/buy', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId, count: ticketsArray.length, tickets: ticketsArray })
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify({ count: ticketsArray.length, tickets: ticketsArray })
                     });
                     const data = await response.json();
                     
@@ -408,7 +496,7 @@
                         clearSelection();
                         renderPurchasedBoards();
                     } else {
-                        alert(data.message);
+                        alert(data.detail || data.message || "Request failed.");
                     }
                 } catch (e) {
                     alert("Transaction failed. Please try again.");
@@ -490,22 +578,22 @@
 
         async function fetchUserData() {
             try {
+                if (!telegramInitData) throw new Error("Open from Telegram");
                 const res = await fetch('/api/user', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId })
+                    headers: authHeaders()
                 });
                 const data = await res.json();
                 userBalance = data.balance;
                 document.getElementById('user-balance').innerText = `${userBalance} ETB`;
             } catch (e) {
-                document.getElementById('user-balance').innerText = `500 ETB`;
+                document.getElementById('user-balance').innerText = '—';
             }
         }
 
         async function syncLobby() {
             try {
-                const res = await fetch('/api/admin/stats');
+                const res = await fetch('/api/lobby');
                 const data = await res.json();
                 document.getElementById('lobby-round').innerText = "#" + data.active_game_id;
                 document.getElementById('lobby-pool').innerText = data.prize_pool.toLocaleString() + " ETB";
@@ -513,6 +601,7 @@
         }
 
         fetchUserData();
+        loadMyWithdrawals();
         syncLobby();
         setInterval(syncLobby, 5000);
     </script>
