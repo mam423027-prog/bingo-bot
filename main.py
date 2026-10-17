@@ -15,11 +15,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, "bingo.db")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
-# Telebirr credentials must be configured as Render environment variables.
-# Do not store private keys or merchant secrets in source control.
-TELEBIRR_APP_ID = os.getenv("TELEBIRR_APP_ID", "")
-TELEBIRR_MERCH_CODE = os.getenv("TELEBIRR_MERCH_CODE", "")
-TELEBIRR_PRIVATE_KEY = os.getenv("TELEBIRR_PRIVATE_KEY", "")
+# Manual payment mode: no Telebirr merchant API credentials or private key are used.
 
 class ConnectionManager:
     def __init__(self):
@@ -162,15 +158,11 @@ async def get_user_profile(auth: UserAuth):
 
 @app.post("/api/telebirr/create-order")
 async def create_telebirr_order(req: DepositRequest):
-    # Fail closed until the official merchant API request, signing, and response
-    # verification are implemented against the approved Telebirr documentation.
-    if req.amount <= 0:
-        raise HTTPException(status_code=400, detail="Amount must be greater than zero")
-    if not all((TELEBIRR_APP_ID, TELEBIRR_MERCH_CODE, TELEBIRR_PRIVATE_KEY)):
-        raise HTTPException(status_code=503, detail="Telebirr is not configured")
+    # Automatic checkout is intentionally unavailable in manual-payment mode.
+    # Players should submit a manual deposit request for admin review instead.
     raise HTTPException(
-        status_code=503,
-        detail="Telebirr checkout is not enabled until the official merchant API flow is configured and verified."
+        status_code=410,
+        detail="Automatic Telebirr checkout is disabled. Use the manual deposit request workflow."
     )
 
 @app.post("/api/deposit")
