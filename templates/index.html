@@ -249,7 +249,11 @@
             </div>
             <div class="form-group">
                 <label>Transaction Reference ID</label>
-                <input type="text" id="dep-ref" placeholder="e.g. TX12345678">
+                <input type="text" id="dep-ref" maxlength="120" placeholder="Reference shown by your payment provider" required>
+            </div>
+            <div class="form-group">
+                <label>Payment Receipt (PNG, JPG, GIF, or WebP; max 5 MB)</label>
+                <input type="file" id="dep-receipt" accept="image/png,image/jpeg,image/gif,image/webp" required>
             </div>
             <div style="display:flex; gap:8px; margin-top:16px;">
                 <button class="btn-quick" style="flex:1;" onclick="closeDepositModal()">Cancel</button>
@@ -270,7 +274,8 @@
         const tg = window.Telegram ? window.Telegram.WebApp : null;
         if (tg) tg.expand();
 
-        const userId = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) ? tg.initDataUnsafe.user.id : 349952871;
+        const telegramInitData = tg && tg.initData ? tg.initData : "";
+        const authHeaders = () => ({ "X-Telegram-Init-Data": telegramInitData });
 
         let userBalance = 500;
         const selectedTickets = new Set();
@@ -351,25 +356,34 @@
         async function submitDeposit() {
             const amount = parseInt(document.getElementById('dep-amount').value);
             const method = document.getElementById('dep-method').value;
-            const ref = document.getElementById('dep-ref').value;
+            const ref = document.getElementById('dep-ref').value.trim();
+            const receipt = document.getElementById('dep-receipt').files[0];
 
+            if (!telegramInitData) { alert("Please open Hagere Bingo from the Telegram bot."); return; }
             if (!amount || amount < 10) { alert("Minimum deposit amount is 10 ETB."); return; }
             if (!ref) { alert("Please enter your transaction reference ID."); return; }
+            if (!receipt) { alert("Please attach your payment receipt image."); return; }
+            if (receipt.size > 5 * 1024 * 1024) { alert("Receipt image must be 5 MB or smaller."); return; }
 
             try {
+                const form = new FormData();
+                form.append('amount', String(amount));
+                form.append('payment_method', method);
+                form.append('tx_ref', ref);
+                form.append('receipt', receipt);
                 const res = await fetch('/api/deposit', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, amount: amount, payment_method: method, tx_ref: ref })
+                    headers: authHeaders(),
+                    body: form
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    alert(data.message);
-                    userBalance = data.new_balance;
-                    document.getElementById('user-balance').innerText = `${userBalance} ETB`;
+                    alert(data.message || "Deposit request submitted for review.");
+                    document.getElementById('dep-ref').value = "";
+                    document.getElementById('dep-receipt').value = "";
                     closeDepositModal();
                 } else {
-                    alert(data.message);
+                    alert(data.detail || data.message || "Deposit request failed.");
                 }
             } catch (e) {
                 alert("Deposit processing failed.");
@@ -394,8 +408,8 @@
                 try {
                     const response = await fetch('/api/buy', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ user_id: userId, count: ticketsArray.length, tickets: ticketsArray })
+                        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+                        body: JSON.stringify({ count: ticketsArray.length, tickets: ticketsArray })
                     });
                     const data = await response.json();
                     
@@ -490,22 +504,22 @@
 
         async function fetchUserData() {
             try {
+                if (!telegramInitData) throw new Error("Open from Telegram");
                 const res = await fetch('/api/user', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId })
+                    headers: authHeaders()
                 });
                 const data = await res.json();
                 userBalance = data.balance;
                 document.getElementById('user-balance').innerText = `${userBalance} ETB`;
             } catch (e) {
-                document.getElementById('user-balance').innerText = `500 ETB`;
+                document.getElementById('user-balance').innerText = '—';
             }
         }
 
         async function syncLobby() {
             try {
-                const res = await fetch('/api/admin/stats');
+                const res = await fetch('/api/lobby');
                 const data = await res.json();
                 document.getElementById('lobby-round').innerText = "#" + data.active_game_id;
                 document.getElementById('lobby-pool').innerText = data.prize_pool.toLocaleString() + " ETB";
