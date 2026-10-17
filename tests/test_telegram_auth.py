@@ -96,7 +96,7 @@ class ManualWithdrawalTests(unittest.IsolatedAsyncioTestCase):
             "query_id": "withdrawal-test",
             "user": json.dumps({"id": 123456, "first_name": "Test"}, separators=(",", ":")),
         }
-        check_string = "\\n".join("{}={}".format(k, v) for k, v in sorted(fields.items()))
+        check_string = "\n".join("{}={}".format(k, v) for k, v in sorted(fields.items()))
         secret_key = hmac.new(b"WebAppData", self.token.encode(), hashlib.sha256).digest()
         fields["hash"] = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
         return urlencode(fields)
