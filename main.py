@@ -216,9 +216,9 @@ async def process_deposit(
     if len(content) > MAX_RECEIPT_BYTES:
         raise HTTPException(status_code=413, detail="Receipt image must be 5 MB or smaller.")
     ext_by_signature = None
-    if content.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
         ext_by_signature = ".png"
-    elif content.startswith(b"\\xff\\xd8\\xff"):
+    elif content.startswith(b"\xff\xd8\xff"):
         ext_by_signature = ".jpg"
     elif content.startswith((b"GIF87a", b"GIF89a")):
         ext_by_signature = ".gif"
