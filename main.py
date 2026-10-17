@@ -97,6 +97,7 @@ async def ensure_user(db, user_id: int):
     )
 
 async def init_db():
+    Path(DB_FILE).parent.mkdir(parents=True, exist_ok=True)
     RECEIPT_DIR.mkdir(parents=True, exist_ok=True)
     async with aiosqlite.connect(DB_FILE) as db:
         await db.execute("""CREATE TABLE IF NOT EXISTS users (
