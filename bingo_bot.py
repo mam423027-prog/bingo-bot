@@ -50,13 +50,13 @@ async def cmd_start(message: Message):
     await ensure_user(message.from_user.id)
     if WEBAPP_URL.startswith("https://"):
         message_text = (
-            "Welcome to Hagere Bingo!\\n\\n"
+            "Welcome to Hagere Bingo!\n\n"
             "Tap “Open Hagere Bingo” to play. Deposits are credited only after an administrator "
             "checks your payment receipt and transaction reference."
         )
     else:
         message_text = (
-            "Welcome to Hagere Bingo!\\n\\n"
+            "Welcome to Hagere Bingo!\n\n"
             "The game is not configured yet. Please try again later."
         )
     await message.answer(message_text, reply_markup=main_menu_keyboard())
