@@ -278,7 +278,7 @@
         const telegramInitData = tg && tg.initData ? tg.initData : "";
         const authHeaders = () => ({ "X-Telegram-Init-Data": telegramInitData });
 
-        let userBalance = 500;
+        let userBalance = 0;
         const selectedTickets = new Set();
         const purchasedTickets = [];
         const drawnNumbers = new Set();
@@ -423,7 +423,7 @@
                         clearSelection();
                         renderPurchasedBoards();
                     } else {
-                        alert(data.message);
+                        alert(data.detail || data.message || "Request failed.");
                     }
                 } catch (e) {
                     alert("Transaction failed. Please try again.");
