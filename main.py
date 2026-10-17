@@ -124,6 +124,12 @@ async def init_db():
             if column not in columns:
                 await db.execute(f"ALTER TABLE deposits ADD COLUMN {column} {declaration}")
         await db.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_deposits_tx_ref ON deposits(tx_ref)")
+        await db.execute("""CREATE TABLE IF NOT EXISTS withdrawals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+            amount INTEGER NOT NULL, payment_method TEXT NOT NULL,
+            destination_account TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+            payout_ref TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at TEXT)""")
         defaults = {
             "round_id": 1025, "prize_pool": 1500, "ticket_price": 10,
             "pending_withdrawals": 0
@@ -182,7 +188,7 @@ async def get_admin_stats(x_telegram_init_data: str | None = Header(default=None
             round_id = (await cursor.fetchone())[0]
         async with db.execute("SELECT value FROM game_state WHERE key='prize_pool'") as cursor:
             prize_pool = (await cursor.fetchone())[0]
-        async with db.execute("SELECT value FROM game_state WHERE key='pending_withdrawals'") as cursor:
+        async with db.execute("SELECT COUNT(*) FROM withdrawals WHERE status='pending'") as cursor:
             pending_withdrawals = (await cursor.fetchone())[0]
         async with db.execute("SELECT COALESCE(SUM(total_deposits), 0) FROM users") as cursor:
             total_deposits = (await cursor.fetchone())[0]
@@ -314,6 +320,112 @@ async def reject_deposit(deposit_id: int, x_telegram_init_data: str | None = Hea
         if cursor.rowcount == 0:
             raise HTTPException(status_code=404, detail="Pending deposit request not found.")
     return {"status": "rejected", "message": "Deposit request rejected."}
+
+@app.post("/api/withdraw")
+async def request_withdrawal(
+    amount: int = Form(...),
+    payment_method: str = Form(...),
+    destination_account: str = Form(...),
+    x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data")
+):
+    user_id = get_user_id(x_telegram_init_data)
+    if amount < 50 or amount > 100000:
+        raise HTTPException(status_code=400, detail="Withdrawal amount must be between 50 and 100,000 ETB.")
+    if payment_method not in ALLOWED_PAYMENT_METHODS:
+        raise HTTPException(status_code=400, detail="Unsupported payout method.")
+    destination_account = destination_account.strip()
+    if not destination_account or len(destination_account) > 80 or not any(ch.isdigit() for ch in destination_account):
+        raise HTTPException(status_code=400, detail="Enter a valid Telebirr phone number or CBE Birr account.")
+    async with aiosqlite.connect(DB_FILE) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        await ensure_user(db, user_id)
+        async with db.execute("SELECT balance FROM users WHERE user_id=?", (user_id,)) as cursor:
+            balance = (await cursor.fetchone())[0]
+        if balance < amount:
+            await db.rollback()
+            raise HTTPException(status_code=400, detail="Insufficient wallet balance.")
+        await db.execute("UPDATE users SET balance=balance-? WHERE user_id=?", (amount, user_id))
+        await db.execute(
+            "INSERT INTO withdrawals (user_id, amount, payment_method, destination_account, status) VALUES (?, ?, ?, ?, 'pending')",
+            (user_id, amount, payment_method, destination_account)
+        )
+        await db.commit()
+    return {"status": "pending", "message": "Withdrawal request submitted. The amount is reserved and will be paid manually after review."}
+
+
+@app.get("/api/withdrawals")
+async def list_my_withdrawals(x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data")):
+    user_id = get_user_id(x_telegram_init_data)
+    async with aiosqlite.connect(DB_FILE) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT id, amount, payment_method, status, created_at, payout_ref FROM withdrawals WHERE user_id=? ORDER BY id DESC LIMIT 50",
+            (user_id,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+    return {"withdrawals": [dict(row) for row in rows]}
+
+
+@app.get("/api/admin/withdrawals")
+async def list_withdrawals(x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data")):
+    require_admin(x_telegram_init_data)
+    async with aiosqlite.connect(DB_FILE) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """SELECT id, user_id, amount, payment_method, destination_account, status, payout_ref, created_at
+               FROM withdrawals ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, id DESC LIMIT 200"""
+        ) as cursor:
+            rows = await cursor.fetchall()
+    return {"withdrawals": [dict(row) for row in rows]}
+
+
+@app.post("/api/admin/withdrawals/{withdrawal_id}/paid")
+async def mark_withdrawal_paid(
+    withdrawal_id: int,
+    payout_ref: str = Form(""),
+    x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data")
+):
+    require_admin(x_telegram_init_data)
+    payout_ref = payout_ref.strip()
+    if len(payout_ref) > 120:
+        raise HTTPException(status_code=400, detail="Payout reference is too long.")
+    async with aiosqlite.connect(DB_FILE) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        async with db.execute("SELECT status FROM withdrawals WHERE id=?", (withdrawal_id,)) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            await db.rollback()
+            raise HTTPException(status_code=404, detail="Withdrawal request not found.")
+        if row[0] != "pending":
+            await db.rollback()
+            raise HTTPException(status_code=409, detail="This withdrawal has already been reviewed.")
+        await db.execute(
+            "UPDATE withdrawals SET status='paid', payout_ref=?, reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'",
+            (payout_ref or None, withdrawal_id)
+        )
+        await db.commit()
+    return {"status": "paid", "message": "Withdrawal marked paid."}
+
+
+@app.post("/api/admin/withdrawals/{withdrawal_id}/reject")
+async def reject_withdrawal(withdrawal_id: int, x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data")):
+    require_admin(x_telegram_init_data)
+    async with aiosqlite.connect(DB_FILE) as db:
+        await db.execute("BEGIN IMMEDIATE")
+        async with db.execute("SELECT user_id, amount, status FROM withdrawals WHERE id=?", (withdrawal_id,)) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            await db.rollback()
+            raise HTTPException(status_code=404, detail="Withdrawal request not found.")
+        user_id, amount, status = row
+        if status != "pending":
+            await db.rollback()
+            raise HTTPException(status_code=409, detail="This withdrawal has already been reviewed.")
+        await db.execute("UPDATE withdrawals SET status='rejected', reviewed_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'", (withdrawal_id,))
+        await db.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (amount, user_id))
+        await db.commit()
+    return {"status": "rejected", "message": "Withdrawal rejected and reserved funds returned to the wallet."}
+
 
 @app.post("/api/buy")
 async def buy_tickets(purchase: TicketPurchase, x_telegram_init_data: str | None = Header(default=None, alias="X-Telegram-Init-Data")):
