@@ -30,6 +30,9 @@
     <h2>Manual Deposit Review</h2>
     <p class="muted">Check the payment in your own Telebirr/CBE account before approving. Approval credits the player wallet.</p>
     <div id="deposit-list"></div>
+    <h2>Manual Withdrawal Payouts</h2>
+    <p class="muted">Pay the player manually to the listed account first, then mark the request paid. Rejecting a request returns the reserved amount to the player's wallet.</p>
+    <div id="withdrawal-list"></div>
 
     <script>
         const tg = window.Telegram ? window.Telegram.WebApp : null;
@@ -109,6 +112,76 @@
             }
         }
 
+        async function loadWithdrawals() {
+            const container = document.getElementById("withdrawal-list");
+            container.replaceChildren();
+            try {
+                const data = await api('/api/admin/withdrawals');
+                if (!data.withdrawals.length) {
+                    container.textContent = "No withdrawal requests yet.";
+                    return;
+                }
+                for (const w of data.withdrawals) {
+                    const card = document.createElement("div");
+                    card.className = "card deposit";
+                    const heading = document.createElement("h3");
+                    heading.textContent = "Withdrawal #" + w.id + " — " + w.status.toUpperCase();
+                    card.appendChild(heading);
+                    const details = document.createElement("p");
+                    details.textContent = "Player ID: " + w.user_id + " | Amount: " + w.amount + " ETB | Method: " + w.payment_method;
+                    card.appendChild(details);
+                    const destination = document.createElement("p");
+                    destination.textContent = "Pay to: " + w.destination_account;
+                    card.appendChild(destination);
+                    const created = document.createElement("p");
+                    created.className = "muted";
+                    created.textContent = "Requested: " + (w.created_at || "time unavailable");
+                    card.appendChild(created);
+                    if (w.payout_ref) {
+                        const payout = document.createElement("p");
+                        payout.textContent = "Payout reference: " + w.payout_ref;
+                        card.appendChild(payout);
+                    }
+                    if (w.status === "pending") {
+                        const paid = document.createElement("button");
+                        paid.className = "btn";
+                        paid.textContent = "Mark paid";
+                        paid.onclick = () => markWithdrawalPaid(w.id);
+                        card.appendChild(paid);
+                        const reject = document.createElement("button");
+                        reject.className = "btn danger";
+                        reject.textContent = "Reject & refund";
+                        reject.onclick = () => rejectWithdrawal(w.id);
+                        card.appendChild(reject);
+                    }
+                    container.appendChild(card);
+                }
+            } catch (e) {
+                container.textContent = "Could not load withdrawal requests: " + e.message;
+            }
+        }
+
+        async function markWithdrawalPaid(id) {
+            if (!confirm("Have you sent this payout to the player's account? Only continue after the payment is complete.")) return;
+            const payoutRef = prompt("Optional payout transaction reference (leave blank if unavailable):", "") || "";
+            const form = new FormData();
+            form.append("payout_ref", payoutRef);
+            try {
+                const data = await api('/api/admin/withdrawals/' + id + '/paid', { method: 'POST', body: form });
+                alert(data.message || "Withdrawal marked paid.");
+                await loadWithdrawals();
+            } catch (e) { alert(e.message); }
+        }
+
+        async function rejectWithdrawal(id) {
+            if (!confirm("Reject this withdrawal and return the reserved amount to the player's wallet?")) return;
+            try {
+                const data = await api('/api/admin/withdrawals/' + id + '/reject', { method: 'POST' });
+                alert(data.message || "Withdrawal rejected.");
+                await Promise.all([fetchStats(), loadWithdrawals()]);
+            } catch (e) { alert(e.message); }
+        }
+
         async function viewReceipt(id, card) {
             try {
                 const res = await fetch('/api/admin/deposits/' + id + '/receipt', { headers: headers() });
@@ -151,6 +224,7 @@
 
         fetchStats();
         loadDeposits();
+        loadWithdrawals();
     </script>
 </body>
 </html>
