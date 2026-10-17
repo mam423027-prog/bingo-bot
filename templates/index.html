@@ -200,7 +200,8 @@
         <div class="stat-box">
             <div class="stat-title">My Balance</div>
             <div class="stat-val" id="user-balance" style="color: var(--gold);">...</div>
-            <button class="btn-deposit" onclick="openDepositModal()">+ Deposit Account</button>
+            <button class="btn-deposit" onclick="openDepositModal()">+ Deposit</button>
+            <button class="btn-deposit" onclick="openWithdrawalModal()">− Withdraw</button>
         </div>
         <div class="stat-box">
             <div class="stat-title">Active Round</div>
@@ -261,6 +262,36 @@
                 <button class="btn-buy" style="flex:1;" onclick="submitDeposit()">Confirm Deposit</button>
             </div>
         </div>
+    </div>
+
+    <div class="modal-overlay" id="withdrawal-modal">
+        <div class="modal-content">
+            <div class="modal-title">🏦 Request Withdrawal</div>
+            <p style="color:#fbbf24;font-size:.8rem;">Withdrawals are paid manually after review. The requested amount is reserved from your wallet; rejected requests return it.</p>
+            <div class="form-group">
+                <label>Payout Method</label>
+                <select id="withdraw-method">
+                    <option value="Telebirr">Telebirr</option>
+                    <option value="CBE Birr">CBE Birr</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Amount (ETB; minimum 50)</label>
+                <input type="number" id="withdraw-amount" min="50" max="100000" step="1" value="50">
+            </div>
+            <div class="form-group">
+                <label>Telebirr phone number or CBE Birr account</label>
+                <input type="text" id="withdraw-account" maxlength="80" placeholder="Your payout account" required>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:16px;">
+                <button class="btn-quick" style="flex:1;" onclick="closeWithdrawalModal()">Cancel</button>
+                <button class="btn-buy" style="flex:1;" onclick="submitWithdrawal()">Submit</button>
+            </div>
+        </div>
+    </div>
+    <div class="section-box">
+        <div class="section-title">My Recent Withdrawals</div>
+        <div id="my-withdrawals">Open from Telegram to view requests.</div>
     </div>
 
     <div class="footer-action" id="footer-bar">
@@ -353,6 +384,48 @@
 
         function openDepositModal() { document.getElementById('deposit-modal').style.display = 'flex'; }
         function closeDepositModal() { document.getElementById('deposit-modal').style.display = 'none'; }
+
+        function openWithdrawalModal() { document.getElementById('withdrawal-modal').style.display = 'flex'; }
+        function closeWithdrawalModal() { document.getElementById('withdrawal-modal').style.display = 'none'; }
+
+        async function submitWithdrawal() {
+            if (!telegramInitData) { alert("Please open Hagere Bingo from the Telegram bot."); return; }
+            const amount = parseInt(document.getElementById('withdraw-amount').value);
+            const method = document.getElementById('withdraw-method').value;
+            const account = document.getElementById('withdraw-account').value.trim();
+            if (!Number.isInteger(amount) || amount < 50 || amount > 100000) { alert("Withdrawal amount must be between 50 and 100,000 ETB."); return; }
+            if (!account) { alert("Enter your payout account."); return; }
+            const form = new FormData();
+            form.append('amount', String(amount));
+            form.append('payment_method', method);
+            form.append('destination_account', account);
+            try {
+                const res = await fetch('/api/withdraw', { method: 'POST', headers: authHeaders(), body: form });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Withdrawal request failed.");
+                alert(data.message || "Withdrawal submitted.");
+                closeWithdrawalModal();
+                await fetchUserData();
+                await loadMyWithdrawals();
+            } catch (e) { alert(e.message || "Withdrawal request failed."); }
+        }
+
+        async function loadMyWithdrawals() {
+            const container = document.getElementById("my-withdrawals");
+            if (!telegramInitData) { container.textContent = "Open from Telegram to view requests."; return; }
+            try {
+                const res = await fetch('/api/withdrawals', { headers: authHeaders() });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || "Could not load withdrawals.");
+                container.replaceChildren();
+                if (!data.withdrawals.length) { container.textContent = "No withdrawal requests yet."; return; }
+                for (const w of data.withdrawals) {
+                    const item = document.createElement("p");
+                    item.textContent = "#" + w.id + " — " + w.amount + " ETB — " + w.payment_method + " — " + w.status.toUpperCase() + (w.payout_ref ? " — Ref: " + w.payout_ref : "");
+                    container.appendChild(item);
+                }
+            } catch (e) { container.textContent = e.message; }
+        }
 
         async function submitDeposit() {
             const amount = parseInt(document.getElementById('dep-amount').value);
@@ -528,6 +601,7 @@
         }
 
         fetchUserData();
+        loadMyWithdrawals();
         syncLobby();
         setInterval(syncLobby, 5000);
     </script>
